@@ -9,8 +9,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import io.github.luposolitario.lonewolfredux.data.Book
 import io.github.luposolitario.lonewolfredux.data.DownloadStatus
@@ -21,7 +19,6 @@ import io.github.luposolitario.lonewolfredux.viewmodel.DownloadManagerViewModel
 fun DownloadManagerScreen(viewModel: DownloadManagerViewModel) {
     val books by viewModel.books.collectAsState()
     val groupedBooks = books.groupBy { it.series }
-    val context = LocalContext.current
 
     Scaffold(
         topBar = {
@@ -42,9 +39,12 @@ fun DownloadManagerScreen(viewModel: DownloadManagerViewModel) {
                 items(booksInSeries) { book ->
                     BookRow(
                         book = book,
-                        onPlay = { viewModel.onPlayClicked(context, book.id) },
-                        onDownload = { viewModel.onDownloadClicked(context, book) },
-                        onDelete = { viewModel.onDeleteClicked(context, book) } // Modificato
+                        // --- INIZIO BLOCCO CORRETTO ---
+                        // Rimuoviamo il 'context' dalle chiamate
+                        onPlay = { viewModel.onPlayClicked(book.id) },
+                        onDownload = { viewModel.onDownloadClicked(book) },
+                        onDelete = { viewModel.onDeleteClicked(book) }
+                        // --- FINE BLOCCO CORRETTO ---
                     )
                     Divider()
                 }
@@ -57,7 +57,7 @@ fun DownloadManagerScreen(viewModel: DownloadManagerViewModel) {
 fun BookRow(
     book: Book,
     onPlay: () -> Unit,
-    onDownload: () -> Unit, // Modificato
+    onDownload: () -> Unit,
     onDelete: () -> Unit
 ) {
     Row(

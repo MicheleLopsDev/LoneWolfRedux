@@ -1,13 +1,13 @@
 package io.github.luposolitario.lonewolfredux.viewmodel
 
-import android.content.Context
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.work.*
 import io.github.luposolitario.lonewolfredux.data.Book
 import io.github.luposolitario.lonewolfredux.data.BookSeries
 import io.github.luposolitario.lonewolfredux.data.DownloadStatus
-import io.github.luposolitario.lonewolfredux.navigation.AppNavigator // Importa il navigatore
+import io.github.luposolitario.lonewolfredux.navigation.AppNavigator
 import io.github.luposolitario.lonewolfredux.worker.DownloadWorker
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
@@ -15,54 +15,68 @@ import kotlinx.coroutines.launch
 import java.io.File
 import java.util.UUID
 
-class DownloadManagerViewModel : ViewModel() {
+class DownloadManagerViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _books = MutableStateFlow<List<Book>>(emptyList())
     val books: StateFlow<List<Book>> = _books.asStateFlow()
 
     init {
-        _books.value = getAllBooks()
+        checkBooksStatus()
     }
 
-    // Funzione per avviare la partita
-    fun onPlayClicked(context: Context, bookId: Int) {
-        AppNavigator.navigateToGame(context, bookId)
+    private fun checkBooksStatus() {
+        val allBooks = getAllBooks()
+        val context = getApplication<Application>().applicationContext
+        val updatedBooks = allBooks.map { book ->
+            val bookDir = File(context.filesDir, "books/${book.id}")
+            if (bookDir.exists() && bookDir.isDirectory) {
+                book.copy(status = DownloadStatus.Downloaded)
+            } else {
+                book
+            }
+        }
+        _books.value = updatedBooks
     }
 
-    // Funzione per eliminare i file di un libro
-    fun onDeleteClicked(context: Context, book: Book) {
+    fun onDownloadClicked(book: Book) {
+        val context = getApplication<Application>().applicationContext
+        val workManager = WorkManager.getInstance(context)
+
+        val zipFile = File(context.cacheDir, "${book.id}.zip")
+        val unzipDir = File(context.filesDir, "books/${book.id}")
+
+        // --- INIZIO BLOCCO CORRETTO ---
+        // Usiamo le chiavi corrette definite nel DownloadWorker
+        val workRequest = OneTimeWorkRequestBuilder<DownloadWorker>()
+            .setInputData(workDataOf(
+                DownloadWorker.KEY_URL to book.downloadUrl,
+                DownloadWorker.KEY_DESTINATION_ZIP to zipFile.absolutePath,
+                DownloadWorker.KEY_UNZIP_DIR to unzipDir.absolutePath
+            ))
+            .addTag("download_${book.id}")
+            .build()
+        // --- FINE BLOCCO CORRETTO ---
+
+        workManager.enqueue(workRequest)
+        observeDownloadProgress(workManager, workRequest.id, book.id)
+    }
+
+    fun onDeleteClicked(book: Book) {
         viewModelScope.launch(Dispatchers.IO) {
-            // Il nome della cartella corrisponde all'ID del libro. Es: "1", "2", ...
+            val context = getApplication<Application>().applicationContext
             val bookDirectory = File(context.filesDir, "books/${book.id}")
             if (bookDirectory.exists()) {
                 bookDirectory.deleteRecursively()
             }
-            // Aggiorna lo stato dell'interfaccia
             updateBookStatus(book.id, DownloadStatus.NotDownloaded)
         }
     }
 
-    fun onDownloadClicked(context: Context, book: Book) {
-        val workManager = WorkManager.getInstance(context)
-
-        // La destinazione ora è la cartella dei libri, non più dei download generici
-        val destinationDir = File(context.filesDir, "books/${book.id}")
-        val zipFile = File(destinationDir, "${book.id}.zip")
-
-        val workRequest = OneTimeWorkRequestBuilder<DownloadWorker>()
-            .setInputData(workDataOf(
-                DownloadWorker.KEY_URL to book.downloadUrl,
-                DownloadWorker.KEY_DESTINATION to zipFile.absolutePath
-            ))
-            .addTag("download_${book.id}")
-            .build()
-
-        workManager.enqueue(workRequest)
-
-        observeDownloadProgress(workManager, workRequest.id, book.id)
+    fun onPlayClicked(bookId: Int) {
+        val context = getApplication<Application>().applicationContext
+        AppNavigator.navigateToGame(context, bookId)
     }
 
-    // ... (il resto del file, incluso observeDownloadProgress e getAllBooks, rimane invariato)
     private fun observeDownloadProgress(workManager: WorkManager, workId: UUID, bookId: Int) {
         viewModelScope.launch {
             workManager.getWorkInfoByIdFlow(workId).collect { workInfo ->
@@ -89,6 +103,12 @@ class DownloadManagerViewModel : ViewModel() {
         }
     }
 
+    // Lista completa dei libri
+    // In: viewmodel/DownloadManagerViewModel.kt
+
+// ... (il resto della classe rimane invariato)
+
+    // Lista completa dei libri con gli URL CORRETTI
     private fun getAllBooks(): List<Book> {
         return listOf(
             Book(1, "I Signori delle Tenebre", BookSeries.KAI, "https://www.projectaon.org/en/xhtml/lw/01fftd/01fftd.zip"),
