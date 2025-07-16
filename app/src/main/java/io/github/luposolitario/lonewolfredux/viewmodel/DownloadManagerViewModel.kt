@@ -2,11 +2,16 @@ package io.github.luposolitario.lonewolfredux.viewmodel
 
 import android.content.Context
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import androidx.work.*
 import io.github.luposolitario.lonewolfredux.data.Book
 import io.github.luposolitario.lonewolfredux.data.BookSeries
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import io.github.luposolitario.lonewolfredux.data.DownloadStatus
+import io.github.luposolitario.lonewolfredux.worker.DownloadWorker
+import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.launch
+import java.io.File
+import java.util.UUID
 
 class DownloadManagerViewModel : ViewModel() {
 
@@ -14,33 +19,91 @@ class DownloadManagerViewModel : ViewModel() {
     val books: StateFlow<List<Book>> = _books.asStateFlow()
 
     init {
-        loadBookList()
+        // La lista completa dei libri come da documento
+        _books.value = getAllBooks()
     }
 
-    private fun loadBookList() {
-        // Per ora, usiamo una lista statica presa dal tuo documento di progetto
-        _books.value = listOf(
+    fun onDownloadClicked(context: Context, book: Book) {
+        val workManager = WorkManager.getInstance(context)
+
+        // Definisci dove salvare il file
+        val destinationFile = File(context.filesDir, "downloads/${book.id}.zip")
+
+        val workRequest = OneTimeWorkRequestBuilder<DownloadWorker>()
+            .setInputData(workDataOf(
+                DownloadWorker.KEY_URL to book.downloadUrl,
+                DownloadWorker.KEY_DESTINATION to destinationFile.absolutePath
+            ))
+            .addTag("download_${book.id}")
+            .build()
+
+        workManager.enqueue(workRequest)
+
+        observeDownloadProgress(workManager, workRequest.id, book.id)
+    }
+
+    private fun observeDownloadProgress(workManager: WorkManager, workId: UUID, bookId: Int) {
+        viewModelScope.launch {
+            workManager.getWorkInfoByIdFlow(workId).collect { workInfo ->
+                if (workInfo != null) {
+                    val progressData = workInfo.progress
+                    val total = progressData.getLong("total", 0)
+                    val progress = progressData.getLong("progress", 0)
+
+                    val percentage = if (total > 0) ((progress * 100) / total).toInt() else 0
+
+                    updateBookStatus(bookId, when (workInfo.state) {
+                        WorkInfo.State.RUNNING -> DownloadStatus.Downloading(percentage)
+                        WorkInfo.State.SUCCEEDED -> DownloadStatus.Downloaded
+                        else -> DownloadStatus.NotDownloaded // O uno stato di errore
+                    })
+                }
+            }
+        }
+    }
+
+    private fun updateBookStatus(bookId: Int, newStatus: DownloadStatus) {
+        _books.update { currentBooks ->
+            currentBooks.map { if (it.id == bookId) it.copy(status = newStatus) else it }
+        }
+    }
+
+    // Funzioni placeholder
+    fun onPlayClicked(context: Context, bookId: Int) {}
+    fun onDeleteClicked(book: Book) {}
+
+    // Lista completa dei libri
+    private fun getAllBooks(): List<Book> {
+        return listOf(
             Book(1, "I Signori delle Tenebre", BookSeries.KAI, "https://www.projectaon.org/en/xhtml/lw/01fftd.zip"),
-            Book(2, "Traversata Infernale", BookSeries.KAI, "https://www.projectaon.org/en/xhtml/lw/02fotw/02fotw.zip"),
-            // ...Aggiungi qui tutti gli altri 27 libri...
-            // Per brevità, ti mostro come iniziare. Completa la lista.
+            Book(2, "Traversata infernale", BookSeries.KAI, "https://www.projectaon.org/en/xhtml/lw/02fotw/02fotw.zip"),
+            Book(3, "Le Grotte di Kalte", BookSeries.KAI, "https://www.projectaon.org/en/xhtml/lw/03tcok/03tcok.zip"),
+            Book(4, "L'Abisso Maledetto", BookSeries.KAI, "https://www.projectaon.org/en/xhtml/lw/04tcod/04tcod.zip"),
+            Book(5, "L'Ombra sulla Sabbia", BookSeries.KAI, "https://www.projectaon.org/en/xhtml/lw/05sots/05sots.zip"),
             Book(6, "I Regni del Terrore", BookSeries.MAGNAKAI, "https://www.projectaon.org/en/xhtml/lw/06tkot/06tkot.zip"),
-            Book(13, "La Peste dei Signori", BookSeries.GRAND_MASTER, "https://www.projectaon.org/en/xhtml/lw/13tplor/13tplor.zip"),
-            Book(21, "Il Viaggio della Pietra di Luna", BookSeries.NEW_ORDER, "https://www.projectaon.org/en/xhtml/lw/21votm/21votm.zip")
-            // etc...
+            Book(7, "Il Castello della Morte", BookSeries.MAGNAKAI, "https://www.projectaon.org/en/xhtml/lw/07cd/07cd.zip"),
+            Book(8, "La Giungla degli Orrori", BookSeries.MAGNAKAI, "https://www.projectaon.org/en/xhtml/lw/08tjoh/08tjoh.zip"),
+            Book(9, "L'Antro della Paura", BookSeries.MAGNAKAI, "https://www.projectaon.org/en/xhtml/lw/09tcof/09tcof.zip"),
+            Book(10, "Le Segrete di Torgar", BookSeries.MAGNAKAI, "https://www.projectaon.org/en/xhtml/lw/10tdot/10tdot.zip"),
+            Book(11, "I Prigionieri del Tempo", BookSeries.MAGNAKAI, "https://www.projectaon.org/en/xhtml/lw/11tpot/11tpot.zip"),
+            Book(12, "I Signori dell'Oscurità", BookSeries.MAGNAKAI, "https://www.projectaon.org/en/xhtml/lw/12tmod/12tmod.zip"),
+            Book(13, "I Signori della Peste di Ruel", BookSeries.GRAND_MASTER, "https://www.projectaon.org/en/xhtml/lw/13tplor/13tplor.zip"),
+            Book(14, "I Prigionieri di Kaag", BookSeries.GRAND_MASTER, "https://www.projectaon.org/en/xhtml/lw/14tcok/14tcok.zip"),
+            Book(15, "La Crociata Oscura", BookSeries.GRAND_MASTER, "https://www.projectaon.org/en/xhtml/lw/15tdc/15tdc.zip"),
+            Book(16, "L'Eredità di Vashna", BookSeries.GRAND_MASTER, "https://www.projectaon.org/en/xhtml/lw/16tlov/16tlov.zip"),
+            Book(17, "Il Signore della Morte di Ixia", BookSeries.GRAND_MASTER, "https://www.projectaon.org/en/xhtml/lw/17tdoi/17tdoi.zip"),
+            Book(18, "L'Alba dei Draghi", BookSeries.GRAND_MASTER, "https://www.projectaon.org/en/xhtml/lw/18dotd/18dotd.zip"),
+            Book(19, "La Rovina di Wolf's Bane", BookSeries.GRAND_MASTER, "https://www.projectaon.org/en/xhtml/lw/19wb/19wb.zip"),
+            Book(20, "La Maledizione di Naar", BookSeries.GRAND_MASTER, "https://www.projectaon.org/en/xhtml/lw/20tcon/20tcon.zip"),
+            Book(21, "Il Viaggio della Pietra di Luna", BookSeries.NEW_ORDER, "https://www.projectaon.org/en/xhtml/lw/21votm/21votm.zip"),
+            Book(22, "I Bucanieri di Shadaki", BookSeries.NEW_ORDER, "https://www.projectaon.org/en/xhtml/lw/22tbos/22tbos.zip"),
+            Book(23, "L'Eroe di Mydnight", BookSeries.NEW_ORDER, "https://www.projectaon.org/en/xhtml/lw/23mh/23mh.zip"),
+            Book(24, "La Guerra dei Rune", BookSeries.NEW_ORDER, "https://www.projectaon.org/en/xhtml/lw/24rw/24rw.zip"),
+            Book(25, "Il Sentiero del Lupo", BookSeries.NEW_ORDER, "https://www.projectaon.org/en/xhtml/lw/25totw/25totw.zip"),
+            Book(26, "La Caduta della Montagna di Sangue", BookSeries.NEW_ORDER, "https://www.projectaon.org/en/xhtml/lw/26tfobm/26tfobm.zip"),
+            Book(27, "Vampirium", BookSeries.NEW_ORDER, "https://www.projectaon.org/en/xhtml/lw/27v/27v.zip"),
+            Book(28, "La Fame di Sejanoz", BookSeries.NEW_ORDER, "https://www.projectaon.org/en/xhtml/lw/28thos/28thos.zip"),
+            Book(29, "Le Tempeste di Chai", BookSeries.NEW_ORDER, "https://www.projectaon.org/en/xhtml/lw/29tsoc/29tsoc.zip")
         )
-    }
-
-    fun onPlayClicked(context: Context, bookId: Int) {
-        // Più avanti, qui lanceremo l'intent per la GameActivity
-        // AppNavigator.navigateToGame(context, bookId)
-    }
-
-    fun onDownloadClicked(book: Book) {
-        // TODO: Logica per avviare il download con WorkManager
-    }
-
-    fun onDeleteClicked(book: Book) {
-        // TODO: Logica per cancellare i file del libro
     }
 }
