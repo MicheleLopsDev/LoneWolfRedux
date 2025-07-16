@@ -7,7 +7,9 @@ import androidx.work.*
 import io.github.luposolitario.lonewolfredux.data.Book
 import io.github.luposolitario.lonewolfredux.data.BookSeries
 import io.github.luposolitario.lonewolfredux.data.DownloadStatus
+import io.github.luposolitario.lonewolfredux.navigation.AppNavigator // Importa il navigatore
 import io.github.luposolitario.lonewolfredux.worker.DownloadWorker
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.io.File
@@ -19,20 +21,38 @@ class DownloadManagerViewModel : ViewModel() {
     val books: StateFlow<List<Book>> = _books.asStateFlow()
 
     init {
-        // La lista completa dei libri come da documento
         _books.value = getAllBooks()
+    }
+
+    // Funzione per avviare la partita
+    fun onPlayClicked(context: Context, bookId: Int) {
+        AppNavigator.navigateToGame(context, bookId)
+    }
+
+    // Funzione per eliminare i file di un libro
+    fun onDeleteClicked(context: Context, book: Book) {
+        viewModelScope.launch(Dispatchers.IO) {
+            // Il nome della cartella corrisponde all'ID del libro. Es: "1", "2", ...
+            val bookDirectory = File(context.filesDir, "books/${book.id}")
+            if (bookDirectory.exists()) {
+                bookDirectory.deleteRecursively()
+            }
+            // Aggiorna lo stato dell'interfaccia
+            updateBookStatus(book.id, DownloadStatus.NotDownloaded)
+        }
     }
 
     fun onDownloadClicked(context: Context, book: Book) {
         val workManager = WorkManager.getInstance(context)
 
-        // Definisci dove salvare il file
-        val destinationFile = File(context.filesDir, "downloads/${book.id}.zip")
+        // La destinazione ora è la cartella dei libri, non più dei download generici
+        val destinationDir = File(context.filesDir, "books/${book.id}")
+        val zipFile = File(destinationDir, "${book.id}.zip")
 
         val workRequest = OneTimeWorkRequestBuilder<DownloadWorker>()
             .setInputData(workDataOf(
                 DownloadWorker.KEY_URL to book.downloadUrl,
-                DownloadWorker.KEY_DESTINATION to destinationFile.absolutePath
+                DownloadWorker.KEY_DESTINATION to zipFile.absolutePath
             ))
             .addTag("download_${book.id}")
             .build()
@@ -42,6 +62,7 @@ class DownloadManagerViewModel : ViewModel() {
         observeDownloadProgress(workManager, workRequest.id, book.id)
     }
 
+    // ... (il resto del file, incluso observeDownloadProgress e getAllBooks, rimane invariato)
     private fun observeDownloadProgress(workManager: WorkManager, workId: UUID, bookId: Int) {
         viewModelScope.launch {
             workManager.getWorkInfoByIdFlow(workId).collect { workInfo ->
@@ -55,7 +76,7 @@ class DownloadManagerViewModel : ViewModel() {
                     updateBookStatus(bookId, when (workInfo.state) {
                         WorkInfo.State.RUNNING -> DownloadStatus.Downloading(percentage)
                         WorkInfo.State.SUCCEEDED -> DownloadStatus.Downloaded
-                        else -> DownloadStatus.NotDownloaded // O uno stato di errore
+                        else -> DownloadStatus.NotDownloaded
                     })
                 }
             }
@@ -68,14 +89,9 @@ class DownloadManagerViewModel : ViewModel() {
         }
     }
 
-    // Funzioni placeholder
-    fun onPlayClicked(context: Context, bookId: Int) {}
-    fun onDeleteClicked(book: Book) {}
-
-    // Lista completa dei libri
     private fun getAllBooks(): List<Book> {
         return listOf(
-            Book(1, "I Signori delle Tenebre", BookSeries.KAI, "https://www.projectaon.org/en/xhtml/lw/01fftd.zip"),
+            Book(1, "I Signori delle Tenebre", BookSeries.KAI, "https://www.projectaon.org/en/xhtml/lw/01fftd/01fftd.zip"),
             Book(2, "Traversata infernale", BookSeries.KAI, "https://www.projectaon.org/en/xhtml/lw/02fotw/02fotw.zip"),
             Book(3, "Le Grotte di Kalte", BookSeries.KAI, "https://www.projectaon.org/en/xhtml/lw/03tcok/03tcok.zip"),
             Book(4, "L'Abisso Maledetto", BookSeries.KAI, "https://www.projectaon.org/en/xhtml/lw/04tcod/04tcod.zip"),

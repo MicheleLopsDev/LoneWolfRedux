@@ -43,8 +43,8 @@ fun DownloadManagerScreen(viewModel: DownloadManagerViewModel) {
                     BookRow(
                         book = book,
                         onPlay = { viewModel.onPlayClicked(context, book.id) },
-                        onDownload = { viewModel.onDownloadClicked(context, book) }, // Modificato
-                        onDelete = { viewModel.onDeleteClicked(book) }
+                        onDownload = { viewModel.onDownloadClicked(context, book) },
+                        onDelete = { viewModel.onDeleteClicked(context, book) } // Modificato
                     )
                     Divider()
                 }
