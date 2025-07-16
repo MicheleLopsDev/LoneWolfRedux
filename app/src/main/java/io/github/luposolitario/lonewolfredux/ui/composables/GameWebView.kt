@@ -22,7 +22,13 @@ fun BookWebView(modifier: Modifier, url: String, onNewUrl: (String) -> Unit) {
         modifier = modifier,
         factory = {
             WebView(it).apply {
+                // --- INIZIO BLOCCO DI MODIFICA ---
                 settings.javaScriptEnabled = true
+                // Concediamo alla WebView il permesso di accedere ai file locali
+                settings.allowFileAccess = true
+                settings.allowContentAccess = true
+                // --- FINE BLOCCO DI MODIFICA ---
+
                 webViewClient = object : WebViewClient() {
                     override fun shouldOverrideUrlLoading(view: WebView, url: String): Boolean {
                         onNewUrl(url)
