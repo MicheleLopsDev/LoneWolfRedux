@@ -135,3 +135,28 @@ background-color: #F9F9D9;
 padding: 4px;
 }
 
+/* Inserisci queste nuove regole in main.css */
+
+#title {
+  width: 95%;      /* Occupa quasi tutta la larghezza dello schermo */
+  max-width: 550px; /* Non diventa più grande di 550px su schermi larghi */
+  margin: 0 auto;  /* Centra il blocco orizzontalmente */
+  padding-top: 10px;
+}
+
+#title img {
+  width: 100%;     /* L'immagine si adatta al 100% del suo contenitore (#title) */
+  height: auto;    /* L'altezza si adatta per mantenere le proporzioni */
+  display: block;
+}
+
+#body {
+  position: static !important; /* Annulla qualsiasi posizionamento assoluto */
+  width: 95%;
+  max-width: 550px;
+  margin: 0 auto;
+  padding-bottom: 20px;
+  padding-top: 15px; /* Spazio tra titolo e corpo */
+  left: 0;
+  top: 0;
+}

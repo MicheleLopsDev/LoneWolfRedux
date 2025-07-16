@@ -51,11 +51,23 @@ fun SheetWebView(modifier: Modifier, url: String, viewModel: GameViewModel, jsTo
                 webView = this
                 settings.javaScriptEnabled = true
                 settings.domStorageEnabled = true
+
+
                 addJavascriptInterface(SheetInterface(viewModel), "Android")
                 webViewClient = object : WebViewClient() {
                     override fun onPageFinished(view: WebView?, url: String?) {
-                        val script = getJsFromAssets(context, "override.js")
-                        view?.evaluateJavascript(script, null)
+                        // 1. Inietta lo script di override per il salvataggio
+                        val overrideScript = getJsFromAssets(context, "override.js")
+                        if (overrideScript.isNotBlank()) {
+                            view?.evaluateJavascript(overrideScript, null)
+                        }
+
+                        // --- INIZIO BLOCCO DI MODIFICA ---
+                        // 2. Inietta il nostro CSS per rendere l'immagine responsiva
+                        val css = "#title img { width: 100%; height: auto; }"
+                        val jsToInjectCss = "var style = document.createElement('style'); style.innerHTML = '$css'; document.head.appendChild(style);"
+                        view?.evaluateJavascript(jsToInjectCss, null)
+                        // --- FINE BLOCCO DI MODIFICA ---
                     }
                 }
             }

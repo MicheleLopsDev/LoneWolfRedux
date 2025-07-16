@@ -18,6 +18,17 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     private val _jsToRunInSheet = MutableStateFlow<String?>(null)
     val jsToRunInSheet = _jsToRunInSheet.asStateFlow()
 
+    // --- NUOVO STATO PER GESTIRE LA VISIBILITÀ ---
+    private val _isShowingSheet = MutableStateFlow(false)
+    val isShowingSheet = _isShowingSheet.asStateFlow()
+    // --- FINE BLOCCO NUOVO ---
+
+
+    // --- NUOVA FUNZIONE PER CAMBIARE VISTA ---
+    fun toggleSheetVisibility() {
+        _isShowingSheet.value = !_isShowingSheet.value
+    }
+    // --- FINE BLOCCO NUOVO ---
     fun initialize(bookId: Int) {
         val context = getApplication<Application>().applicationContext
 
