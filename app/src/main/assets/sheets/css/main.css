@@ -1,0 +1,137 @@
+div#qTip {
+ padding: 3px;
+ border: 1px solid #666;
+ display: none;
+ background: #ffffe6;
+ color: #006633;
+ font: bold 10px Verdana, Arial, sans-serif;
+ position: absolute;
+ z-index: 1000;
+}
+
+
+html, body {
+ background-color: #ffffe6;
+ color: #334033;
+ font-family: Souvenir, Georgia, "Times New Roman", Times, serif;
+}
+
+
+#title {
+ position: absolute;
+ top: 0px;
+ left: 0px;
+ width: 550px;
+ height: 100px;
+ padding: 0px;
+ border: 0px none;
+ margin: 0px;
+}
+
+#body {
+ position: absolute;
+ top: 95px;
+ left: 75px;
+ /* change width to fix Chrome display bugs & use script to load the right file */
+ width: 455px;
+ padding: 0px;
+ border: 0px none;
+ margin: 0px;
+}
+
+#footnotes {
+ font-size: 0.8em;
+}
+
+hr { margin-left: 0px; }
+
+p, ol, ul, dl, blockquote { text-align: justify }
+
+ul.unbulleted { list-style-type: none }
+
+b { font-weight: bold;  }
+
+h1, h2, h3, h4, h5, h6 {
+ margin-top: 0px;
+ border: 0px none;
+ padding: 0px;
+ clear: left;
+ text-align: left;
+}
+
+:link:focus, :visited:focus {
+}
+
+:link, :visited {
+ background-color: transparent;
+ color: #006633;
+ text-decoration: none;
+ font-weight: bold;
+}
+
+:link:hover, :visited:hover {
+ background-color: #cce0c1;
+ color: #006633;
+ text-decoration: none;
+ font-weight: bold;
+}
+
+.navigation :link:hover, .navigation :visited:hover {
+ background-color: transparent;
+ color: #006633;
+ text-decoration: none;
+ font-weight: bold;
+}
+
+:link:active, :visited:active {
+ background-color: transparent;
+ color: #006633;
+ text-decoration: none;
+ font-weight: bold;
+}
+
+dt {
+ font-weight: bold;
+}
+
+.navigation, .signpost, .illustraion, .caption, .center {
+ text-align: center;
+}
+
+.author {
+ text-align: center;
+ font-weight: bold;
+}
+
+.dedication {
+ text-align: center;
+ font-style: italic;
+ font-weight: bold;
+ margin-top: 15ex;
+ margin-bottom: 15ex;
+}
+
+.copyright {
+ text-align: center;
+ font-style: italic;
+}
+
+.choice, .combat {
+ text-align: left;
+ margin-left: 15px;
+ width: 435px;
+}
+
+.smallcaps {
+ font-size: 0.8em;
+}
+
+
+#mybox {
+border-style: solid;
+border-width: 1px;
+border-color: #006633;
+background-color: #F9F9D9;
+padding: 4px;
+}
+
