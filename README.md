@@ -252,3 +252,6 @@ Questa sezione analizza i file Kotlin del precedente progetto "Immunda Noctis" e
 * **TtsService.kt e TtsPreferences.kt**  
   * **Scopo Originale**: Servizio incapsulato per la gestione del Text-to-Speech.  
   * **Riutilizzo in LoneWolfRedux**: **Direttamente riutilizzabili**. Verranno invocati dalla GameActivity quando l'utente seleziona del testo nella BookWebView e sceglie l'opzione "Leggi" dal menu contestuale.
+ 
+Licenza
+Distribuito con licenza MIT.
