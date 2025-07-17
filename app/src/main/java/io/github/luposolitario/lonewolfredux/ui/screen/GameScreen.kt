@@ -45,6 +45,7 @@ fun GameScreen(viewModel: GameViewModel, onClose: () -> Unit) {
     val isBookCompleted by viewModel.isCurrentBookCompleted.collectAsState()
     val showSaveLoadDialog by viewModel.showSaveLoadDialog.collectAsState()
     val saveSlots by viewModel.saveSlots.collectAsState()
+    val jsToRunInBook by viewModel.jsToRunInBook.collectAsState() // <-- Aggiungi questo
 
 
     // Se il dialog deve essere mostrato
@@ -130,6 +131,9 @@ fun GameScreen(viewModel: GameViewModel, onClose: () -> Unit) {
                 BookWebView(
                     modifier = Modifier.fillMaxSize(),
                     url = bookUrl,
+                    viewModel = viewModel,
+                    jsToRun = jsToRunInBook,
+                    onJsExecuted = { viewModel.onBookJsExecuted() },
                     onNewUrl = { viewModel.onNewUrl(it) }
                 )
             }

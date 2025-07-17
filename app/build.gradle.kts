@@ -72,7 +72,8 @@ dependencies {
     implementation(libs.protobuf.javalite)
     implementation(libs.protobuf.kotlin.lite)
     implementation(libs.androidx.material.icons.extended.android)
-
+    implementation(libs.translate)
+    implementation(libs.language.id)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

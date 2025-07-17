@@ -25,4 +25,13 @@ class SheetInterface(private val viewModel: GameViewModel) {
         Log.d("SheetInterface", "JS richiede i dati della scheda con callbackId: $callbackId")
         viewModel.loadSheetDataIntoWebView(callbackId)
     }
+
+    /**
+     * Metodo esposto al JS per tradurre il testo della Scheda Azione.
+     */
+    @JavascriptInterface
+    fun translate(text: String, callbackId: Int) {
+        // Chiama una funzione dedicata nel ViewModel per evitare conflitti con la BookWebView
+        viewModel.onSheetTranslateRequest(text, callbackId)
+    }
 }

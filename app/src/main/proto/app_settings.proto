@@ -6,4 +6,7 @@ option java_multiple_files = true;
 message AppSettings {
   // Usiamo un set di ID interi per memorizzare i libri completati.
   repeated int32 completed_book_ids = 1;
+
+  // Se true, usa il motore avanzato (Gemma). Se false (default), usa ML Kit.
+  bool use_advanced_translation = 2;
 }

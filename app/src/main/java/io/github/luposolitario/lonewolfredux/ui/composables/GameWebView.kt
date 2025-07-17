@@ -9,6 +9,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
 import io.github.luposolitario.lonewolfredux.bridge.SheetInterface
 import io.github.luposolitario.lonewolfredux.viewmodel.GameViewModel
+import io.github.luposolitario.lonewolfredux.bridge.TranslationInterface // Importa il nuovo bridge
 
 /**
  * Legge il contenuto di un file dalla cartella assets e lo restituisce come stringa.
@@ -23,7 +24,14 @@ private fun getJsFromAssets(context: Context, fileName: String): String {
 }
 
 @Composable
-fun BookWebView(modifier: Modifier, url: String, onNewUrl: (String) -> Unit) {
+fun BookWebView(
+    modifier: Modifier,
+    url: String,
+    viewModel: GameViewModel, // <-- Aggiungi viewModel
+    jsToRun: String?, // <-- Aggiungi jsToRun
+    onJsExecuted: () -> Unit, // <-- Aggiungi onJsExecuted
+    onNewUrl: (String) -> Unit
+) {
     AndroidView(
         modifier = modifier,
         factory = {
@@ -31,17 +39,37 @@ fun BookWebView(modifier: Modifier, url: String, onNewUrl: (String) -> Unit) {
                 settings.javaScriptEnabled = true
                 settings.allowFileAccess = true
                 settings.allowContentAccess = true
+
+                // Aggiungiamo il nuovo bridge per la traduzione
+                addJavascriptInterface(TranslationInterface(viewModel), "Translator")
+
+
                 webViewClient = object : WebViewClient() {
                     override fun shouldOverrideUrlLoading(view: WebView, url: String): Boolean {
                         onNewUrl(url)
                         return true
                     }
+
+                    override fun onPageFinished(view: WebView?, url: String?) {
+                        super.onPageFinished(view, url)
+                        // Quando la pagina è caricata, iniettiamo lo script di traduzione
+                        val script = getJsFromAssets(context, "translator.js")
+                        if (script.isNotEmpty()) {
+                            view?.evaluateJavascript(script, null)
+                        }
+                    }
+
                 }
             }
         },
-        update = {
-            if (it.url != url) {
-                it.loadUrl(url)
+        update = { webView ->
+            if (webView.url != url) {
+                webView.loadUrl(url)
+            }
+            // Esegui script JS inviati dal ViewModel
+            jsToRun?.let {
+                webView.evaluateJavascript(it, null)
+                onJsExecuted()
             }
         }
     )

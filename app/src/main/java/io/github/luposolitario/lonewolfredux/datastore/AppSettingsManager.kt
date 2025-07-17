@@ -48,4 +48,14 @@ object AppSettingsManager {
             AppSettings.getDefaultInstance()
         }
     }
+
+    suspend fun setUseAdvancedTranslation(context: Context, useAdvanced: Boolean) {
+        context.appSettingsDataStore.updateData { settings ->
+            settings.toBuilder().setUseAdvancedTranslation(useAdvanced).build()
+        }
+    }
+
+    suspend fun isAdvancedTranslationEnabled(context: Context): Boolean {
+        return context.appSettingsDataStore.data.first().useAdvancedTranslation
+    }
 }

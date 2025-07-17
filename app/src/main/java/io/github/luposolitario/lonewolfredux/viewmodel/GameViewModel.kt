@@ -9,6 +9,8 @@ import io.github.luposolitario.lonewolfredux.datastore.AppSettingsManager
 import io.github.luposolitario.lonewolfredux.datastore.GameSession
 import io.github.luposolitario.lonewolfredux.datastore.SaveGameManager
 import io.github.luposolitario.lonewolfredux.datastore.SaveSlotInfo
+import io.github.luposolitario.lonewolfredux.engine.TranslationEngine
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -21,6 +23,13 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     private var activeSlotId: Int = 1
     // Deve essere inizializzato correttamente da `initialize`
     private var currentBookId: Int = -1
+
+
+    private val translationEngine = TranslationEngine() // Istanzia il motore
+
+    // StateFlow per inviare script alla BookWebView (diverso da quello per la SheetWebView)
+    private val _jsToRunInBook = MutableStateFlow<String?>(null)
+    val jsToRunInBook: StateFlow<String?> = _jsToRunInBook.asStateFlow()
 
     // (Il resto delle dichiarazioni StateFlow rimane invariato...)
     private val _bookUrl = MutableStateFlow("about:blank")
@@ -57,6 +66,48 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
 
         loadGame(1) // Carica lo slot 1 del libro corrente
     }
+
+
+    /**
+     * Chiamato dal TranslationInterface quando il JS richiede una traduzione.
+     */
+    fun onTranslateRequest(text: String, callbackId: Int) {
+        viewModelScope.launch(Dispatchers.IO) { // Esegui la traduzione su un thread IO
+            val translatedText = translationEngine.translate(text)
+            // L'escape degli apici è fondamentale per non rompere la stringa JS
+            val escapedText = translatedText.replace("'", "\\'")
+            val script = "window.onTranslationResult('$escapedText', $callbackId);"
+            runJsInBookView(script)
+        }
+    }
+
+
+    /**
+     * Chiamato dal SheetInterface quando il JS della SheetWebView richiede una traduzione.
+     */
+    fun onSheetTranslateRequest(text: String, callbackId: Int) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val translatedText = translationEngine.translate(text)
+            val escapedText = translatedText.replace("'", "\\'")
+            val script = "window.onTranslationResult('$escapedText', $callbackId);"
+            runJsInSheetView(script) // Invia lo script alla SheetWebView
+        }
+    }
+
+    /**
+     * Funzione per inviare uno script alla BookWebView.
+     */
+    fun runJsInBookView(script: String) {
+        _jsToRunInBook.value = script
+    }
+
+    /**
+     * Resetta lo script dopo l'esecuzione per evitare che venga rieseguito.
+     */
+    fun onBookJsExecuted() {
+        _jsToRunInBook.value = null
+    }
+
 
     fun toggleBookCompletion() {
         if (currentBookId > 0) {
