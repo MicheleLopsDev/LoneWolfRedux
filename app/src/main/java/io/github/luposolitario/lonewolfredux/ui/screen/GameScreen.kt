@@ -39,6 +39,9 @@ fun GameScreen(viewModel: GameViewModel, onClose: () -> Unit) {
     val bookmarkUrl by viewModel.bookmarkUrl.collectAsState()
     // --- FINE BLOCCO ---
 
+
+
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -55,15 +58,17 @@ fun GameScreen(viewModel: GameViewModel, onClose: () -> Unit) {
                             Icon(Icons.Default.ArrowBack, "Indietro")
                         }
                         IconButton(onClick = { viewModel.onBookmarkClicked() }) {
-                            // Usiamo lo stato raccolto 'bookmarkUrl'
-                            val isBookmarked = bookUrl == bookmarkUrl && bookmarkUrl != null
+                            // --- INIZIO MODIFICA ---
+                            // La stella è gialla se il segnalibro NON è nullo,
+                            // indipendentemente dalla pagina corrente.
+                            val isBookmarked = bookmarkUrl != null
+                            // --- FINE MODIFICA ---
                             Icon(
                                 if (isBookmarked) Icons.Filled.Star else Icons.Outlined.Star,
                                 "Segnalibro",
                                 tint = if (isBookmarked) Color(0xFFFFD700) else LocalContentColor.current
                             )
                         }
-                        // Usiamo lo stato raccolto 'bookmarkUrl' per abilitare il pulsante
                         IconButton(onClick = { viewModel.onGoToBookmarkClicked() }, enabled = bookmarkUrl != null) {
                             Icon(Icons.Default.Bookmark, "Vai al Segnalibro")
                         }
