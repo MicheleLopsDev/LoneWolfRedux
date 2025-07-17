@@ -33,7 +33,11 @@ fun GameScreen(viewModel: GameViewModel, onClose: () -> Unit) {
     val bookUrl by viewModel.bookUrl.collectAsState()
     val sheetUrl by viewModel.sheetUrl.collectAsState()
     val jsToRun by viewModel.jsToRunInSheet.collectAsState()
+    // --- QUESTA È LA RIGA CHIAVE ---
+    // Raccogliamo lo stato del segnalibro in una variabile locale.
+    // Ogni volta che cambia nel ViewModel, questa parte si aggiornerà.
     val bookmarkUrl by viewModel.bookmarkUrl.collectAsState()
+    // --- FINE BLOCCO ---
 
     Scaffold(
         topBar = {
@@ -43,7 +47,6 @@ fun GameScreen(viewModel: GameViewModel, onClose: () -> Unit) {
                     IconButton(onClick = onClose) { Icon(Icons.Default.Close, "Chiudi") }
                 },
                 actions = {
-                    // --- NUOVI PULSANTI DI NAVIGAZIONE ---
                     if (!isShowingSheet) {
                         IconButton(onClick = { viewModel.onHomeClicked() }) {
                             Icon(Icons.Default.Home, "Home")
@@ -52,6 +55,7 @@ fun GameScreen(viewModel: GameViewModel, onClose: () -> Unit) {
                             Icon(Icons.Default.ArrowBack, "Indietro")
                         }
                         IconButton(onClick = { viewModel.onBookmarkClicked() }) {
+                            // Usiamo lo stato raccolto 'bookmarkUrl'
                             val isBookmarked = bookUrl == bookmarkUrl && bookmarkUrl != null
                             Icon(
                                 if (isBookmarked) Icons.Filled.Star else Icons.Outlined.Star,
@@ -59,11 +63,11 @@ fun GameScreen(viewModel: GameViewModel, onClose: () -> Unit) {
                                 tint = if (isBookmarked) Color(0xFFFFD700) else LocalContentColor.current
                             )
                         }
-                        IconButton(onClick = { viewModel.onGoToBookmarkClicked() }, enabled = viewModel.bookmarkUrl.value != null) {
+                        // Usiamo lo stato raccolto 'bookmarkUrl' per abilitare il pulsante
+                        IconButton(onClick = { viewModel.onGoToBookmarkClicked() }, enabled = bookmarkUrl != null) {
                             Icon(Icons.Default.Bookmark, "Vai al Segnalibro")
                         }
                     }
-                    // --- FINE BLOCCO ---
                     IconButton(onClick = { viewModel.toggleSheetVisibility() }) {
                         Icon(
                             imageVector = if (isShowingSheet) Icons.Default.Book else Icons.Default.Person,
@@ -73,12 +77,11 @@ fun GameScreen(viewModel: GameViewModel, onClose: () -> Unit) {
                 }
             )
         }
-    )  { padding ->
+    ) { padding ->
         Box(
             modifier = Modifier.padding(padding).fillMaxSize()
         ) {
             if (isShowingSheet) {
-                // Se dobbiamo mostrare la scheda
                 SheetWebView(
                     modifier = Modifier.fillMaxSize(),
                     url = sheetUrl,
@@ -87,7 +90,6 @@ fun GameScreen(viewModel: GameViewModel, onClose: () -> Unit) {
                     onJsExecuted = { viewModel.onJsExecuted() }
                 )
             } else {
-                // Altrimenti, mostriamo il libro
                 BookWebView(
                     modifier = Modifier.fillMaxSize(),
                     url = bookUrl,
