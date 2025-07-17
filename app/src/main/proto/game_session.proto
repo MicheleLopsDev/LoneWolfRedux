@@ -12,4 +12,7 @@ message GameSession {
 
   // URL del paragrafo salvato come segnalibro
   string bookmarked_paragraph_url = 3;
+
+  // ==> Aggiungi questa riga se manca! <==
+  int64 last_saved_timestamp = 4;
 }

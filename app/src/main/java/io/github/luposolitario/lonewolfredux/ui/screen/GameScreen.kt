@@ -28,7 +28,8 @@ import androidx.compose.ui.graphics.Color
 import io.github.luposolitario.lonewolfredux.ui.composables.BookWebView
 import io.github.luposolitario.lonewolfredux.ui.composables.SheetWebView
 import io.github.luposolitario.lonewolfredux.viewmodel.GameViewModel
-
+import io.github.luposolitario.lonewolfredux.ui.composables.SaveLoadDialog
+import androidx.compose.material.icons.filled.Save
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GameScreen(viewModel: GameViewModel, onClose: () -> Unit) {
@@ -38,7 +39,21 @@ fun GameScreen(viewModel: GameViewModel, onClose: () -> Unit) {
     val sheetUrl by viewModel.sheetUrl.collectAsState()
     val jsToRun by viewModel.jsToRunInSheet.collectAsState()
     val bookmarkUrl by viewModel.bookmarkUrl.collectAsState()
+    // ... (gli state esistenti)
+    val showSaveLoadDialog by viewModel.showSaveLoadDialog.collectAsState()
+    val saveSlots by viewModel.saveSlots.collectAsState()
 
+
+    // Se il dialog deve essere mostrato
+    if (showSaveLoadDialog) {
+        SaveLoadDialog(
+            slots = saveSlots,
+            onDismiss = { viewModel.closeSaveLoadDialog() },
+            onSave = { slotId -> viewModel.saveGame(slotId) },
+            onLoad = { slotId -> viewModel.loadGame(slotId) },
+
+        )
+    }
     Scaffold(
         topBar = {
             TopAppBar(
@@ -48,9 +63,9 @@ fun GameScreen(viewModel: GameViewModel, onClose: () -> Unit) {
                 },
                 actions = {
                     if (isShowingSheet) {
-                        // Se stiamo mostrando la scheda, mostriamo il pulsante Salva
-                        IconButton(onClick = { viewModel.onSaveSheetClicked() }) {
-                            Icon(Icons.Default.Save, contentDescription = "Salva Scheda")
+                        // Aggiungiamo un pulsante unico per aprire il dialog di salvataggio/caricamento
+                        IconButton(onClick = { viewModel.openSaveLoadDialog() }) {
+                            Icon(Icons.Default.Save, contentDescription = "Salva o Carica")
                         }
                     } else {
                         IconButton(onClick = { viewModel.onHomeClicked() }) {
