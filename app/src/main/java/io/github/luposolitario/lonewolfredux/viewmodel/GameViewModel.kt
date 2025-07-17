@@ -77,20 +77,66 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    // AGGIUNGI questa nuova funzione per gestire il salvataggio di massa
-    fun saveAllSheetData(jsonData: String) {
-        Log.d("GameViewModel", "Salvataggio di massa da JS ricevuto: $jsonData")
+    // --- INIZIO BLOCCO DI SALVATAGGIO/CARICAMENTO NATIVO ---
+
+    // Chiamato dal pulsante "Salva" nativo
+    fun onSaveSheetClicked() {
+        // Script per estrarre i dati dal form e chiamare il nostro ponte
+        val script = """
+            (function() {
+                var data = {};
+                var form = document.actionChart;
+                for (var i = 0; i < form.elements.length; i++) {
+                    var field = form.elements[i];
+                    if (field.name) {
+                        data[field.name] = (field.type === 'checkbox') ? field.checked : field.value;
+                    }
+                }
+                window.Android.onSheetDataExtracted(JSON.stringify(data));
+            })();
+        """.trimIndent()
+        runJsInSheetView(script)
+    }
+
+    // Chiamato dal ponte JS con i dati estratti
+    fun saveSheetData(jsonData: String) {
+        Log.d("GameViewModel", "Dati estratti ricevuti: $jsonData")
         viewModelScope.launch {
-            // Converti il JSON in una mappa
             val type = object : TypeToken<Map<String, String>>() {}.type
             val dataMap: Map<String, String> = Gson().fromJson(jsonData, type)
-
-            // Aggiorna il DataStore con la nuova mappa completa
             dataStore.updateData { currentSession ->
                 currentSession.toBuilder()
-                    .clearSheetData() // Pulisce i dati vecchi
-                    .putAllSheetData(dataMap) // Inserisce tutti i dati nuovi
+                    .clearSheetData()
+                    .putAllSheetData(dataMap)
                     .build()
+            }
+        }
+    }
+
+    // Funzione per preparare lo script di caricamento
+    fun prepareLoadScript() {
+        viewModelScope.launch {
+            val dataMap = getAllSheetData()
+            if (dataMap.isNotEmpty()) {
+                val jsonData = Gson().toJson(dataMap)
+                val script = """
+                    (function() {
+                        var data = JSON.parse('$jsonData');
+                        var form = document.actionChart;
+                        for (var i = 0; i < form.elements.length; i++) {
+                            var field = form.elements[i];
+                            if (field.name && data[field.name] !== undefined) {
+                                if (field.type === 'checkbox') {
+                                    field.checked = (data[field.name] === 'true');
+                                } else {
+                                    field.value = data[field.name];
+                                }
+                            }
+                        }
+                        if (typeof findPercentage === 'function') findPercentage();
+                    })();
+                """.trimIndent()
+                runJsInSheetView(script)
             }
         }
     }

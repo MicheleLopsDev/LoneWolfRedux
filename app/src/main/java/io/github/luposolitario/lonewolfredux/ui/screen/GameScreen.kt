@@ -4,10 +4,25 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Book
+import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Save
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.Star
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import io.github.luposolitario.lonewolfredux.ui.composables.BookWebView
@@ -32,7 +47,12 @@ fun GameScreen(viewModel: GameViewModel, onClose: () -> Unit) {
                     IconButton(onClick = onClose) { Icon(Icons.Default.Close, "Chiudi") }
                 },
                 actions = {
-                    if (!isShowingSheet) {
+                    if (isShowingSheet) {
+                        // Se stiamo mostrando la scheda, mostriamo il pulsante Salva
+                        IconButton(onClick = { viewModel.onSaveSheetClicked() }) {
+                            Icon(Icons.Default.Save, contentDescription = "Salva Scheda")
+                        }
+                    } else {
                         IconButton(onClick = { viewModel.onHomeClicked() }) {
                             Icon(Icons.Default.Home, "Home")
                         }
@@ -51,7 +71,10 @@ fun GameScreen(viewModel: GameViewModel, onClose: () -> Unit) {
                                 tint = if (isBookmarked) Color(0xFFFFD700) else LocalContentColor.current
                             )
                         }
-                        IconButton(onClick = { viewModel.onGoToBookmarkClicked() }, enabled = bookmarkUrl != null) {
+                        IconButton(
+                            onClick = { viewModel.onGoToBookmarkClicked() },
+                            enabled = bookmarkUrl != null
+                        ) {
                             Icon(Icons.Default.Bookmark, "Vai al Segnalibro")
                         }
                     }
@@ -66,7 +89,9 @@ fun GameScreen(viewModel: GameViewModel, onClose: () -> Unit) {
         }
     ) { padding ->
         Box(
-            modifier = Modifier.padding(padding).fillMaxSize()
+            modifier = Modifier
+                .padding(padding)
+                .fillMaxSize()
         ) {
             if (isShowingSheet) {
                 SheetWebView(

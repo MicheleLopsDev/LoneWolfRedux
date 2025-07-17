@@ -43,7 +43,6 @@ fun BookWebView(modifier: Modifier, url: String, onNewUrl: (String) -> Unit) {
 
 @Composable
 fun SheetWebView(modifier: Modifier, url: String, viewModel: GameViewModel, jsToRun: String?, onJsExecuted: () -> Unit) {
-    lateinit var webView: WebView
     AndroidView(
         modifier = modifier,
         factory = { context ->
@@ -51,18 +50,19 @@ fun SheetWebView(modifier: Modifier, url: String, viewModel: GameViewModel, jsTo
                 settings.javaScriptEnabled = true
                 settings.domStorageEnabled = true
                 addJavascriptInterface(SheetInterface(viewModel), "Android")
-
-                // --- MODIFICA ---
-                // Rimuoviamo il vecchio webViewClient che iniettava lo script
-                webViewClient = WebViewClient()
-                // --- FINE MODIFICA ---
+                webViewClient = object : WebViewClient() {
+                    override fun onPageFinished(view: WebView?, url: String?) {
+                        super.onPageFinished(view, url)
+                        // Quando la pagina è pronta, chiediamo al ViewModel di iniettare i dati salvati
+                        viewModel.prepareLoadScript()
+                    }
+                }
             }
         },
         update = { webView ->
             if (webView.url != url) {
                 webView.loadUrl(url)
             }
-            // La logica per jsToRun per ora rimane, ci servirà per il caricamento
             jsToRun?.let { script ->
                 webView.evaluateJavascript(script, null)
                 onJsExecuted()
