@@ -1,11 +1,14 @@
 package io.github.luposolitario.lonewolfredux.data
 
-// Un enum per le serie dei libri, ci aiuterà a raggrupparli
-enum class BookSeries(val title: String) {
-    KAI("Serie Kai"),
-    MAGNAKAI("Serie Magnakai"),
-    GRAND_MASTER("Serie Gran Maestro"),
-    NEW_ORDER("Serie Nuovo Ordine")
+import androidx.annotation.DrawableRes
+import io.github.luposolitario.lonewolfredux.R
+
+// Aggiungi un parametro @DrawableRes al costruttore dell'enum
+enum class BookSeries(val title: String, @DrawableRes val iconResId: Int) {
+    KAI("Serie Kai", R.drawable.green),
+    MAGNAKAI("Serie Magnakai", R.drawable.blue),
+    GRAND_MASTER("Serie Gran Maestro", R.drawable.red),
+    NEW_ORDER("Serie Nuovo Ordine", R.drawable.purple)
 }
 
 // Uno stato per sapere se un libro è scaricato o meno

@@ -17,6 +17,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import io.github.luposolitario.lonewolfredux.data.Book
 import io.github.luposolitario.lonewolfredux.data.DownloadStatus
@@ -78,6 +79,16 @@ fun BookRow(
             modifier = Modifier.weight(1f),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // 1. Mostra l'icona della serie
+            Icon(
+                painter = painterResource(id = book.series.iconResId),
+                contentDescription = "Icona Serie ${book.series.title}",
+                modifier = Modifier.size(24.dp), // Dimensione dell'icona
+                tint = Color.Unspecified // IMPORTANTE: per usare i colori originali del PNG
+            )
+
+            Spacer(modifier = Modifier.width(12.dp)) // Spazio tra icona e testo
+
             Text(text = "${book.id}. ${book.title}")
             if (book.isCompleted) {
                 Icon(
