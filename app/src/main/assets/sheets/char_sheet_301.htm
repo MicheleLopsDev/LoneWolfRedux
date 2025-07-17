@@ -1,186 +1,252 @@
-
 <html>
 <head>
-<SCRIPT language="JavaScript1.2" src="js/tip.js" type="text/javascript"></SCRIPT>
-<title>Lone Wolf - Action Chart & Combat System</title>
-<link type="text/css" href="css/main.css" rel="stylesheet" />
-<script src="js/prototype.js"></script>
-<script src="js/jstorage.js"></script>
-<script src="js/jsProgressBarHandler.js"></script>
-<script src="js/palwac.js"></script>
+    <SCRIPT language="JavaScript1.2" src="js/tip.js" type="text/javascript"></SCRIPT>
+    <title>Lone Wolf - Action Chart & Combat System</title>
+    <link type="text/css" href="css/main.css" rel="stylesheet"/>
+    <script src="js/prototype.js"></script>
+    <script src="js/jstorage.js"></script>
+    <script src="js/jsProgressBarHandler.js"></script>
+    <script src="js/palwac.js"></script>
 
 </head>
 
 
 <body>
- <DIV id="TipLayer" style="visibility:hidden;position:absolute;z-index:1000;top:-100;"></DIV>
- <SCRIPT language="JavaScript1.2" src="js/style1.js" type="text/javascript"></SCRIPT>
-  <span name="cssPlace" id="cssPlace"></span>
-  <script>
+<DIV id="TipLayer" style="visibility:hidden;position:absolute;z-index:1000;top:-100;"></DIV>
+<SCRIPT language="JavaScript1.2" src="js/style1.js" type="text/javascript"></SCRIPT>
+<span name="cssPlace" id="cssPlace"></span>
+<script>
     chromeCheck();
-  </script>
+</script>
 
-<div id="title"><img align="middle" border="0" height="100" width="550" src="img/title01.png" /></div>
+<div id="title"><img align="middle" border="0" height="100" width="550" src="img/title01.png"/>
+</div>
 
 
 <div id="body">
 
-<div class="numbered">
+    <div class="numbered">
 
 
-<br />
-<b> Read Me: <img src="img/info.gif" onMouseOver="stm(Text[0],Style[1])" onMouseOut="htm()"> - Mouse-Over icon for more information. </b><br />
-<br />
-<form name="combatForm" id="combatForm">
-<input type="hidden" name="chartID" value="01">
-<div id="mybox">
-  <b><img src="img/info.gif" onMouseOver="stm(Text[1],Style[0])" onMouseOut="htm()"> Combat System:</b> <img src="img/info.gif" onMouseOver="stm(Text[2],Style[0])" onMouseOut="htm()"><input type="checkbox" name="fttd"> Fight to the Death?:  <br />
-   <table border="0" width="100%">
-    <tr>
-      <td width="80%">
- Enemy CS: <input size="2" name="enemyCS" id="enemyCS"> & Enemy EP: <input size="2" name="enemyEP" id="enemyEP"></td><td><input type="button" value="Start Combat" onClick="getInfo()" /></td>
-     </tr>
-  </table>
-</div>
+        <br/>
+        <b> Read Me: <img src="img/info.gif" onMouseOver="stm(Text[0],Style[1])" onMouseOut="htm()">
+            - Mouse-Over icon for more information. </b><br/>
+        <br/>
+        <form name="combatForm" id="combatForm">
+            <input type="hidden" name="chartID" value="01">
+            <div id="mybox">
+                <b><img src="img/info.gif" onMouseOver="stm(Text[1],Style[0])" onMouseOut="htm()">
+                    Combat System:</b> <img src="img/info.gif" onMouseOver="stm(Text[2],Style[0])"
+                                            onMouseOut="htm()"><input type="checkbox" name="fttd">
+                Fight to the Death?: <br/>
+                <table border="0" width="100%">
+                    <tr>
+                        <td width="80%">
+                            Enemy CS: <input size="2" name="enemyCS" id="enemyCS"> & Enemy EP:
+                            <input size="2" name="enemyEP" id="enemyEP"></td>
+                        <td><input type="button" value="Start Combat" onClick="getInfo()"/></td>
+                    </tr>
+                </table>
+            </div>
 
-<br />
+            <br/>
 
-<div id="mybox">
-  <table border="0" width="100%">
-    <tr>
-     <td width="80%"><b><img src="img/info.gif" onMouseOver="stm(Text[3],Style[0])" onMouseOut="htm()"> Random Number Generator:</b><span id="singleNumber"></span></td>
-     <td><input type="button" value="Random Number" onClick="randomNumber('singleNumber', 10)" /></td>
-    </tr>
-  </table>
-</div>
+            <div id="mybox">
+                <table border="0" width="100%">
+                    <tr>
+                        <td width="80%"><b><img src="img/info.gif"
+                                                onMouseOver="stm(Text[3],Style[0])"
+                                                onMouseOut="htm()"> Random Number
+                            Generator:</b><span id="singleNumber"></span></td>
+                        <td><input type="button" value="Random Number"
+                                   onClick="randomNumber('singleNumber', 10)"/></td>
+                    </tr>
+                </table>
+            </div>
 
-</form>
+        </form>
 
-<form name="actionChart" id="actionChart">
-<input type="hidden" name="leftURL" id="leftURL">
-<input type="hidden" name="kaiName" value="Lone Wolf">
+        <form name="actionChart" id="actionChart">
+            <input type="hidden" name="leftURL" id="leftURL">
+            <input type="hidden" name="kaiName" value="Lone Wolf">
 
-<div id="mybox">
-  <b><img src="img/info.gif" onMouseOver="stm(Text[4],Style[0])" onMouseOut="htm()"> Combat Skill:</b><br />
-  Base #: <input type="text" size="2" name="csBase" id="csBase" onchange="addCS()">&nbsp;<b>+</b>&nbsp;Bonus: <input type="text" size="2" name="csBonus" id="csBonus" onchange="addCS()">&nbsp;<b>=</b>&nbsp;Total: <input type="text" size="2" name="csTotal" id="csTotal">
-</div>
-<br>
-<div id="mybox">
-  <b><img src="img/info.gif" onMouseOver="stm(Text[5],Style[0])" onMouseOut="htm()"> Endurance Points:</b>&nbsp;<span class="progressBar" id="element1">5%</span></b><br />
-  Base #: <input size="2" name="epBase" id="epBase" onchange="addEP()">&nbsp;<b>+</b>&nbsp;Bonus: <input size="2" name="epBonus" id="epBonus" onchange="addEP()">&nbsp;<b>=</b>&nbsp;Total: <input size="2" name="epTotal" id="epTotal" onchange="findPercentage()">  Current: <input size="2" name="epNow" id="epNow" onchange="findPercentage()"><a href="javascript:addOneEP()"><b>+</b></a><br />
- </div>
+            <div id="mybox">
+                <b><img src="img/info.gif" onMouseOver="stm(Text[4],Style[0])" onMouseOut="htm()">
+                    Combat Skill:</b><br/>
+                Base #: <input type="text" size="2" name="csBase" id="csBase" onchange="addCS()">&nbsp;<b>+</b>&nbsp;Bonus:
+                <input type="text" size="2" name="csBonus" id="csBonus" onchange="addCS()">&nbsp;<b>=</b>&nbsp;Total:
+                <input type="text" size="2" name="csTotal" id="csTotal">
+            </div>
+            <br>
+            <div id="mybox">
+                <b><img src="img/info.gif" onMouseOver="stm(Text[5],Style[0])" onMouseOut="htm()">
+                    Endurance Points:</b>&nbsp;<span class="progressBar" id="element1">5%</span></b>
+                <br/>
+                Base #: <input size="2" name="epBase" id="epBase" onchange="addEP()">&nbsp;<b>+</b>&nbsp;Bonus:
+                <input size="2" name="epBonus" id="epBonus" onchange="addEP()">&nbsp;<b>=</b>&nbsp;Total:
+                <input size="2" name="epTotal" id="epTotal" onchange="findPercentage()"> Current:
+                <input size="2" name="epNow" id="epNow" onchange="findPercentage()"><a
+                    href="javascript:addOneEP()"><b>+</b></a><br/>
+            </div>
 
-<br />
-<div id="mybox">
-  <b>&nbsp;&nbsp;<img src="img/info.gif" onMouseOver="stm(Text[6],Style[0])" onMouseOut="htm()"> Kai Disciplines:</b><br />
-  <b>1.</b><input size="30" name="3">&nbsp;Novice<br />
-  <b>2.</b><input size="30" name="4">&nbsp;Intuite<br />
-  <b>3.</b><input size="30" name="5">&nbsp;Doan<br />
-  <b>4.</b><input size="30" name="6">&nbsp;Acolyte<br />
-  <b>5.</b><input size="30" name="7">&nbsp;Initiate<br />
-  <br />
-  <b>&nbsp;&nbsp;<img src="img/info.gif" onMouseOver="stm(Text[7],Style[0])" onMouseOut="htm()"> Bonus Disciplines:</b><br />
-  <b>6.</b><input size="30" name="8">&nbsp;Aspirant<br />
-  <b>7.</b><input size="30" name="9">&nbsp;Guardian<br />
-  <b>8.</b><input size="30" name="10">&nbsp;Warman or Journeyman<br />
-  <b>9.</b><input size="30" name="11">&nbsp;Savant<br />
-</div>
+            <br/>
+            <div id="mybox">
+                <b>&nbsp;&nbsp;<img src="img/info.gif" onMouseOver="stm(Text[6],Style[0])"
+                                    onMouseOut="htm()"> Kai Disciplines:</b><br/>
+                <b>1.</b><input size="30" name="3">&nbsp;Novice<br/>
+                <b>2.</b><input size="30" name="4">&nbsp;Intuite<br/>
+                <b>3.</b><input size="30" name="5">&nbsp;Doan<br/>
+                <b>4.</b><input size="30" name="6">&nbsp;Acolyte<br/>
+                <b>5.</b><input size="30" name="7">&nbsp;Initiate<br/>
+                <br/>
+                <b>&nbsp;&nbsp;<img src="img/info.gif" onMouseOver="stm(Text[7],Style[0])"
+                                    onMouseOut="htm()"> Bonus Disciplines:</b><br/>
+                <b>6.</b><input size="30" name="8">&nbsp;Aspirant<br/>
+                <b>7.</b><input size="30" name="9">&nbsp;Guardian<br/>
+                <b>8.</b><input size="30" name="10">&nbsp;Warman or Journeyman<br/>
+                <b>9.</b><input size="30" name="11">&nbsp;Savant<br/>
+            </div>
 
-<br />
+            <br/>
 
-<div id="mybox">
-  <b><img src="img/info.gif" onMouseOver="stm(Text[8],Style[0])" onMouseOut="htm()"> Weapons:</b><br />
-  <b>1.</b><input size="25" name="12">&nbsp;&nbsp;&nbsp;<b>2.</b> <input size="25" name="13"><br />
-</div>
+            <div id="mybox">
+                <b><img src="img/info.gif" onMouseOver="stm(Text[8],Style[0])" onMouseOut="htm()">
+                    Weapons:</b><br/>
+                <b>1.</b><input size="25" name="12">&nbsp;&nbsp;&nbsp;<b>2.</b> <input size="25"
+                                                                                       name="13"><br/>
+            </div>
 
-<br />
+            <br/>
 
-<div id="mybox">
-  <b><img src="img/info.gif" onMouseOver="stm(Text[9],Style[0])" onMouseOut="htm()"> Belt Pouch:</b> <input size="3" name="14">&nbsp;&nbsp;<b><img src="img/info.gif" onMouseOver="stm(Text[10],Style[0])" onMouseOut="htm()"> Meals:</b> <input size="4" name="15"><br />
-</div>
+            <div id="mybox">
+                <b><img src="img/info.gif" onMouseOver="stm(Text[9],Style[0])" onMouseOut="htm()">
+                    Belt Pouch:</b> <input size="3" name="14">&nbsp;&nbsp;<b><img src="img/info.gif"
+                                                                                  onMouseOver="stm(Text[10],Style[0])"
+                                                                                  onMouseOut="htm()">
+                Meals:</b> <input size="4" name="15"><br/>
+            </div>
 
-<br />
+            <br/>
 
-<div id="mybox">
-<b><img src="img/info.gif" onMouseOver="stm(Text[11],Style[0])" onMouseOut="htm()"> Backpack Items:</b><br />
-  <b>1.</b><input size="25" name="16">&nbsp;&nbsp;<b>2.</b><input size="25" name="20"><br />
-  <b>3.</b><input size="25" name="17">&nbsp;&nbsp;<b>4.</b><input size="25" name="21"><br />
-  <b>5.</b><input size="25" name="18">&nbsp;&nbsp;<b>6.</b><input size="25" name="22"><br />
-  <b>7.</b><input size="25" name="19">&nbsp;&nbsp;<b>8.</b><input size="25" name="23"><br />
-</div>
+            <div id="mybox">
+                <b><img src="img/info.gif" onMouseOver="stm(Text[11],Style[0])" onMouseOut="htm()">
+                    Backpack Items:</b><br/>
+                <b>1.</b><input size="25" name="16">&nbsp;&nbsp;<b>2.</b><input size="25" name="20"><br/>
+                <b>3.</b><input size="25" name="17">&nbsp;&nbsp;<b>4.</b><input size="25" name="21"><br/>
+                <b>5.</b><input size="25" name="18">&nbsp;&nbsp;<b>6.</b><input size="25" name="22"><br/>
+                <b>7.</b><input size="25" name="19">&nbsp;&nbsp;<b>8.</b><input size="25" name="23"><br/>
+            </div>
 
-<br />
+            <br/>
 
-<div id="mybox">
-<b><img src="img/info.gif" onMouseOver="stm(Text[12],Style[0])" onMouseOut="htm()"> Special Items:</b><br />
-  <b>01.</b><input size="20" name="24">&nbsp;&nbsp;<b>Effect:</b><input size="25" name="25"><br />
-  <b>02.</b><input size="20" name="26">&nbsp;&nbsp;<b>Effect:</b><input size="25" name="27"><br />
-  <b>03.</b><input size="20" name="28">&nbsp;&nbsp;<b>Effect:</b><input size="25" name="29"><br />
-  <b>04.</b><input size="20" name="30">&nbsp;&nbsp;<b>Effect:</b><input size="25" name="31"><br />
-  <b>05.</b><input size="20" name="32">&nbsp;&nbsp;<b>Effect:</b><input size="25" name="33"><br />
-  <b>06.</b><input size="20" name="34">&nbsp;&nbsp;<b>Effect:</b><input size="25" name="35"><br />
-  <b>07.</b><input size="20" name="36">&nbsp;&nbsp;<b>Effect:</b><input size="25" name="37"><br />
-  <b>08.</b><input size="20" name="38">&nbsp;&nbsp;<b>Effect:</b><input size="25" name="39"><br />
-  <b>09.</b><input size="20" name="40">&nbsp;&nbsp;<b>Effect:</b><input size="25" name="41"><br />
-  <b>10.</b><input size="20" name="42">&nbsp;&nbsp;<b>Effect:</b><input size="25" name="43"><br />
-  <b>11.</b><input size="20" name="44">&nbsp;&nbsp;<b>Effect:</b><input size="25" name="45"><br />
-  <b>12.</b><input size="20" name="46">&nbsp;&nbsp;<b>Effect:</b><input size="25" name="47"><br />
-</div>
+            <div id="mybox">
+                <b><img src="img/info.gif" onMouseOver="stm(Text[12],Style[0])" onMouseOut="htm()">
+                    Special Items:</b><br/>
+                <b>01.</b><input size="20" name="24">&nbsp;&nbsp;<b>Effect:</b><input size="25"
+                                                                                      name="25"><br/>
+                <b>02.</b><input size="20" name="26">&nbsp;&nbsp;<b>Effect:</b><input size="25"
+                                                                                      name="27"><br/>
+                <b>03.</b><input size="20" name="28">&nbsp;&nbsp;<b>Effect:</b><input size="25"
+                                                                                      name="29"><br/>
+                <b>04.</b><input size="20" name="30">&nbsp;&nbsp;<b>Effect:</b><input size="25"
+                                                                                      name="31"><br/>
+                <b>05.</b><input size="20" name="32">&nbsp;&nbsp;<b>Effect:</b><input size="25"
+                                                                                      name="33"><br/>
+                <b>06.</b><input size="20" name="34">&nbsp;&nbsp;<b>Effect:</b><input size="25"
+                                                                                      name="35"><br/>
+                <b>07.</b><input size="20" name="36">&nbsp;&nbsp;<b>Effect:</b><input size="25"
+                                                                                      name="37"><br/>
+                <b>08.</b><input size="20" name="38">&nbsp;&nbsp;<b>Effect:</b><input size="25"
+                                                                                      name="39"><br/>
+                <b>09.</b><input size="20" name="40">&nbsp;&nbsp;<b>Effect:</b><input size="25"
+                                                                                      name="41"><br/>
+                <b>10.</b><input size="20" name="42">&nbsp;&nbsp;<b>Effect:</b><input size="25"
+                                                                                      name="43"><br/>
+                <b>11.</b><input size="20" name="44">&nbsp;&nbsp;<b>Effect:</b><input size="25"
+                                                                                      name="45"><br/>
+                <b>12.</b><input size="20" name="46">&nbsp;&nbsp;<b>Effect:</b><input size="25"
+                                                                                      name="47"><br/>
+            </div>
 
-<br />
+            <br/>
 
-<div id="mybox">
-  <b><img src="img/info.gif" onMouseOver="stm(Text[13],Style[0])" onMouseOut="htm()"> Game Notes: </b><br /><center><textarea rows="10" cols="44" name="48"></textarea></center><br />
+            <div id="mybox">
+                <b><img src="img/info.gif" onMouseOver="stm(Text[13],Style[0])" onMouseOut="htm()">
+                    Game Notes: </b><br/>
+                <center><textarea rows="10" cols="44" name="48"></textarea></center>
+                <br/>
 
-</div>
-<br />
+            </div>
+            <br/>
 
-<script type="text/javascript">
-  function askMe(){
+            <script type="text/javascript">
+                function askMe(){
 
-    var userSave = $('optionForm').saveGame.value;
+                  var userSave = $('optionForm').saveGame.value;
 
-  confirmed = window.confirm("Are you sure you want to Continue? \n\nThis will overwrite all data in " + userSave + ".\n");
-      if (confirmed)
-        {
-  	    saveAllData();
-        }
-    }
+                confirmed = window.confirm("Are you sure you want to Continue? \n\nThis will overwrite all data in " + userSave + ".\n");
+                    if (confirmed)
+                      {
+                        saveAllData();
+                      }
+                  }
 
-</script>
-</form>
-<form name="optionForm" id="optionForm">
-<div id="mybox">
-   <table border="0" width="100%">
-<tr><td><b><img src="img/info.gif" onMouseOver="stm(Text[14],Style[0])" onMouseOut="htm()"> Save & Load:</b> <select name="saveGame">
-<option selected="selected" value="Save 01">Save 01</option>
-<option value="Save 02">Save 02</option>
-<option value="Save 03">Save 03</option>
-</select></td><td><input type="button" value="Save..." onClick="askMe()">&nbsp;&nbsp;&nbsp;<input type="button" value="Load..." onClick="loadAllData()"></td></tr>
+            </script>
+        </form>
+        <form name="optionForm" id="optionForm">
+            <div id="mybox">
+                <table border="0" width="100%">
+                    <tr>
+                        <td><b><img src="img/info.gif" onMouseOver="stm(Text[14],Style[0])"
+                                    onMouseOut="htm()"> Save & Load:</b> <select name="saveGame">
+                            <option selected="selected" value="Save 01">Save 01</option>
+                            <option value="Save 02">Save 02</option>
+                            <option value="Save 03">Save 03</option>
+                        </select></td>
+                        <td><input type="button" value="Save..." onClick="askMe()">&nbsp;&nbsp;&nbsp;<input
+                                type="button" value="Load..." onClick="loadAllData()"></td>
+                    </tr>
 
-   </table>
-</div>
+                </table>
+            </div>
 
-</form>
+        </form>
 
-<br />
-<form name="backup" id="backup">
-<div id="mybox">
-	<table border="0" width="100%">
-	<tr><td><b><img src="img/info.gif" onMouseOver="stm(Text[15],Style[0])" onMouseOut="htm()"> Data Backup: </b></tr></td>
-<tr><td><center><textarea rows="10" cols="44" name="backupData"></textarea><br /></tr></td>
-<tr><td><center><input type="button" value="Backup Data" onClick="getBackup()">&nbsp;&nbsp;&nbsp;<input type="button" value="Restore Data" onClick="loadBackup()"></center></tr></td>
-</table>
-</div>
-</form>
-<hr>
-<p class="copyright">Comments or Suggestions: <a href="mailto:eric.zollman@projectaon.org">eric.zollman@projectaon.org</a></p>
+        <br/>
+        <form name="backup" id="backup">
+            <div id="mybox">
+                <table border="0" width="100%">
+                    <tr>
+                        <td><b><img src="img/info.gif" onMouseOver="stm(Text[15],Style[0])"
+                                    onMouseOut="htm()"> Data Backup: </b>
+                    </tr>
+                    </td>
+                    <tr>
+                        <td>
+                            <center><textarea rows="10" cols="44" name="backupData"></textarea><br/>
+                    </tr>
+                    </td>
+                    <tr>
+                        <td>
+                            <center><input type="button" value="Backup Data" onClick="getBackup()">&nbsp;&nbsp;&nbsp;<input
+                                    type="button" value="Restore Data" onClick="loadBackup()">
+                            </center>
+                    </tr>
+                    </td>
+                </table>
+            </div>
+        </form>
+        <hr>
+        <p class="copyright">Comments or Suggestions: <a href="mailto:eric.zollman@projectaon.org">eric.zollman@projectaon.org</a>
+        </p>
 
 
-</center>
+        </center>
 
-<center><a href="http://www.pax.com/free-counters.html"><img src="http://counter.pax.com/counter/image?counter=ctr-tn69io1wwp" alt="Free Hit Counter" border="0" /></a></center>
-<br />
+        <center><a href="http://www.pax.com/free-counters.html"><img
+                src="http://counter.pax.com/counter/image?counter=ctr-tn69io1wwp"
+                alt="Free Hit Counter" border="0"/></a></center>
+        <br/>
 
 
 </body>
