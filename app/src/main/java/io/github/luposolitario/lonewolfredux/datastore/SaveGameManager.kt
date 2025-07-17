@@ -10,6 +10,10 @@ import java.util.Date
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
 import androidx.datastore.dataStoreFile
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.io.File
+
 data class SaveSlotInfo(
     val slotId: Int,
     val lastSaved: String,
@@ -37,6 +41,25 @@ object SaveGameManager {
                 produceFile = { context.dataStoreFile(fileName) }
             )
         }
+    }
+
+    /**
+     * Cancella TUTTI i file di salvataggio dell'applicazione.
+     * Cerca tutti i file che corrispondono al pattern "book_*.pb".
+     */
+    suspend fun deleteAllSaveFiles(context: Context) = withContext(Dispatchers.IO) {
+        val datastoreDir = File(context.filesDir, "datastore")
+        if (datastoreDir.exists() && datastoreDir.isDirectory) {
+            val saveFiles = datastoreDir.listFiles { _, name ->
+                name.startsWith("book_") && name.endsWith(".pb")
+            }
+            saveFiles?.forEach { file ->
+                file.delete()
+                // Potremmo anche invalidare la cache, ma alla riapertura verrà rigenerata
+            }
+        }
+        dataStoreCache.clear() // Svuota la cache per forzare la ricreazione
+        AppSettingsManager.clearAllSettings(context)
     }
 
     /**

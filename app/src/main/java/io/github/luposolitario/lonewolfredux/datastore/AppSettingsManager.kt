@@ -37,4 +37,15 @@ object AppSettingsManager {
     private fun appSettingsDataStore(context: Context): DataStore<AppSettings> {
         return context.appSettingsDataStore
     }
+
+    /**
+     * Resetta tutte le impostazioni dell'app al loro valore di default.
+     * In questo caso, svuota la lista dei libri completati.
+     */
+    suspend fun clearAllSettings(context: Context) {
+        context.appSettingsDataStore.updateData {
+            // Ritorna un'istanza di default, che è vuota
+            AppSettings.getDefaultInstance()
+        }
+    }
 }
