@@ -7,6 +7,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Book
 import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
@@ -30,6 +31,8 @@ import io.github.luposolitario.lonewolfredux.ui.composables.SheetWebView
 import io.github.luposolitario.lonewolfredux.viewmodel.GameViewModel
 import io.github.luposolitario.lonewolfredux.ui.composables.SaveLoadDialog
 import androidx.compose.material.icons.filled.Save
+import androidx.compose.material.icons.outlined.CheckCircle
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GameScreen(viewModel: GameViewModel, onClose: () -> Unit) {
@@ -39,7 +42,7 @@ fun GameScreen(viewModel: GameViewModel, onClose: () -> Unit) {
     val sheetUrl by viewModel.sheetUrl.collectAsState()
     val jsToRun by viewModel.jsToRunInSheet.collectAsState()
     val bookmarkUrl by viewModel.bookmarkUrl.collectAsState()
-    // ... (gli state esistenti)
+    val isBookCompleted by viewModel.isCurrentBookCompleted.collectAsState()
     val showSaveLoadDialog by viewModel.showSaveLoadDialog.collectAsState()
     val saveSlots by viewModel.saveSlots.collectAsState()
 
@@ -68,6 +71,13 @@ fun GameScreen(viewModel: GameViewModel, onClose: () -> Unit) {
                             Icon(Icons.Default.Save, contentDescription = "Salva o Carica")
                         }
                     } else {
+                        IconButton(onClick = { viewModel.toggleBookCompletion() }) {
+                            Icon(
+                                imageVector = if (isBookCompleted) Icons.Filled.CheckCircle else Icons.Outlined.CheckCircle,
+                                contentDescription = "Segna come completato",
+                                tint = if (isBookCompleted) Color(0xFF4CAF50) else LocalContentColor.current // Verde se completato
+                            )
+                        }
                         IconButton(onClick = { viewModel.onHomeClicked() }) {
                             Icon(Icons.Default.Home, "Home")
                         }

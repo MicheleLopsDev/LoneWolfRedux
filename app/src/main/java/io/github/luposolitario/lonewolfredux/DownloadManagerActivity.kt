@@ -20,4 +20,15 @@ class DownloadManagerActivity : ComponentActivity() {
             }
         }
     }
+
+    // --- AGGIUNGI QUESTO METODO ---
+    /**
+     * Quando l'activity torna in primo piano (es. dopo aver chiuso GameActivity),
+     * diciamo al ViewModel di ricaricare la lista dei libri.
+     * Questo garantirà che lo stato "completato" sia sempre aggiornato.
+     */
+    override fun onResume() {
+        super.onResume()
+        viewModel.loadBooks()
+    }
 }

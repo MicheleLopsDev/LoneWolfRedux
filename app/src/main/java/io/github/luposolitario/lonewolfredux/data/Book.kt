@@ -21,5 +21,6 @@ data class Book(
     val title: String,
     val series: BookSeries,
     val downloadUrl: String,
-    val status: DownloadStatus = DownloadStatus.NotDownloaded
+    val status: DownloadStatus = DownloadStatus.NotDownloaded,
+    val isCompleted: Boolean = false
 )

@@ -5,6 +5,7 @@ import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.gson.Gson
+import io.github.luposolitario.lonewolfredux.datastore.AppSettingsManager
 import io.github.luposolitario.lonewolfredux.datastore.GameSession
 import io.github.luposolitario.lonewolfredux.datastore.SaveGameManager
 import io.github.luposolitario.lonewolfredux.datastore.SaveSlotInfo
@@ -38,6 +39,9 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     private val _showSaveLoadDialog = MutableStateFlow(false)
     val showSaveLoadDialog: StateFlow<Boolean> = _showSaveLoadDialog.asStateFlow()
 
+    private val _isCurrentBookCompleted = MutableStateFlow(false)
+    val isCurrentBookCompleted: StateFlow<Boolean> = _isCurrentBookCompleted.asStateFlow()
+
 
     // --- FUNZIONI DI INIZIALIZZAZIONE E GESTIONE DEL GIOCO ---
     fun initialize(bookId: Int) {
@@ -46,8 +50,23 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             return
         }
         currentBookId = bookId
+        // Aggiorna la logica per usare il nuovo manager
+        viewModelScope.launch {
+            _isCurrentBookCompleted.value = AppSettingsManager.isBookCompleted(getApplication(), currentBookId)
+        }
+
         loadGame(1) // Carica lo slot 1 del libro corrente
     }
+
+    fun toggleBookCompletion() {
+        if (currentBookId > 0) {
+            viewModelScope.launch {
+                AppSettingsManager.toggleBookCompletion(getApplication(), currentBookId)
+                _isCurrentBookCompleted.value = AppSettingsManager.isBookCompleted(getApplication(), currentBookId)
+            }
+        }
+    }
+
 
     fun loadGame(slotId: Int) {
         viewModelScope.launch {

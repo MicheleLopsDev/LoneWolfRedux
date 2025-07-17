@@ -1,0 +1,9 @@
+syntax = "proto3";
+
+option java_package = "io.github.luposolitario.lonewolfredux.datastore";
+option java_multiple_files = true;
+
+message AppSettings {
+  // Usiamo un set di ID interi per memorizzare i libri completati.
+  repeated int32 completed_book_ids = 1;
+}

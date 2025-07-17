@@ -7,6 +7,7 @@ import androidx.work.*
 import io.github.luposolitario.lonewolfredux.data.Book
 import io.github.luposolitario.lonewolfredux.data.BookSeries
 import io.github.luposolitario.lonewolfredux.data.DownloadStatus
+import io.github.luposolitario.lonewolfredux.datastore.AppSettingsManager
 import io.github.luposolitario.lonewolfredux.navigation.AppNavigator
 import io.github.luposolitario.lonewolfredux.worker.DownloadWorker
 import kotlinx.coroutines.Dispatchers
@@ -20,23 +21,14 @@ class DownloadManagerViewModel(application: Application) : AndroidViewModel(appl
     private val _books = MutableStateFlow<List<Book>>(emptyList())
     val books: StateFlow<List<Book>> = _books.asStateFlow()
 
+
+
     init {
-        checkBooksStatus()
+        loadBooks()
+
     }
 
-    private fun checkBooksStatus() {
-        val allBooks = getAllBooks()
-        val context = getApplication<Application>().applicationContext
-        val updatedBooks = allBooks.map { book ->
-            val bookDir = File(context.filesDir, "books/${book.id}")
-            if (bookDir.exists() && bookDir.isDirectory) {
-                book.copy(status = DownloadStatus.Downloaded)
-            } else {
-                book
-            }
-        }
-        _books.value = updatedBooks
-    }
+
 
     fun onDownloadClicked(book: Book) {
         val context = getApplication<Application>().applicationContext
@@ -69,6 +61,7 @@ class DownloadManagerViewModel(application: Application) : AndroidViewModel(appl
                 bookDirectory.deleteRecursively()
             }
             updateBookStatus(book.id, DownloadStatus.NotDownloaded)
+            launch(Dispatchers.Main) { loadBooks() }
         }
     }
 
@@ -96,6 +89,34 @@ class DownloadManagerViewModel(application: Application) : AndroidViewModel(appl
             }
         }
     }
+
+    /**
+     * Carica la lista dei libri e aggiorna il loro stato (scaricato e completato).
+     * Questa funzione ora è il punto centrale per rinfrescare la lista.
+     */
+    fun loadBooks() {
+        viewModelScope.launch {
+            val context = getApplication<Application>().applicationContext
+            val allBooksSource = getAllBooks() // La nostra lista statica
+            val completedIds = AppSettingsManager.getCompletedBookIds(context) // Prende gli ID dei libri completati
+
+            val updatedBooks = allBooksSource.map { book ->
+                val bookDir = File(context.filesDir, "books/${book.id}")
+                val status = if (bookDir.exists() && bookDir.isDirectory) {
+                    DownloadStatus.Downloaded
+                } else {
+                    DownloadStatus.NotDownloaded
+                }
+                // Crea il nuovo oggetto Book con lo stato di completamento corretto
+                book.copy(
+                    status = status,
+                    isCompleted = completedIds.contains(book.id)
+                )
+            }
+            _books.value = updatedBooks
+        }
+    }
+
 
     private fun updateBookStatus(bookId: Int, newStatus: DownloadStatus) {
         _books.update { currentBooks ->
