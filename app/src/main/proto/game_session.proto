@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+option java_package = "io.github.luposolitario.lonewolfredux.datastore";
+option java_multiple_files = true;
+
+message GameSession {
+  // Mappa per i dati della Scheda Azione (es. "epNow" -> "20")
+  map<string, string> sheet_data = 1;
+
+  // Lista degli URL dei paragrafi visitati
+  repeated string navigation_history = 2;
+
+  // URL del paragrafo salvato come segnalibro
+  string bookmarked_paragraph_url = 3;
+}
