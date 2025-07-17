@@ -48,34 +48,23 @@ fun SheetWebView(modifier: Modifier, url: String, viewModel: GameViewModel, jsTo
         modifier = modifier,
         factory = { context ->
             WebView(context).apply {
-                webView = this
                 settings.javaScriptEnabled = true
                 settings.domStorageEnabled = true
-
-
                 addJavascriptInterface(SheetInterface(viewModel), "Android")
-                webViewClient = object : WebViewClient() {
-                    override fun onPageFinished(view: WebView?, url: String?) {
-                        // 1. Inietta lo script di override per il salvataggio
-                        val overrideScript = getJsFromAssets(context, "override.js")
-                        if (overrideScript.isNotBlank()) {
-                            view?.evaluateJavascript(overrideScript, null)
-                        }
 
-                        // --- INIZIO BLOCCO DI MODIFICA ---
-                        // 2. Inietta il nostro CSS per rendere l'immagine responsiva
-                        val css = "#title img { width: 100%; height: auto; }"
-                        val jsToInjectCss = "var style = document.createElement('style'); style.innerHTML = '$css'; document.head.appendChild(style);"
-                        view?.evaluateJavascript(jsToInjectCss, null)
-                        // --- FINE BLOCCO DI MODIFICA ---
-                    }
-                }
+                // --- MODIFICA ---
+                // Rimuoviamo il vecchio webViewClient che iniettava lo script
+                webViewClient = WebViewClient()
+                // --- FINE MODIFICA ---
             }
         },
-        update = {
-            if (it.url != url) it.loadUrl(url)
+        update = { webView ->
+            if (webView.url != url) {
+                webView.loadUrl(url)
+            }
+            // La logica per jsToRun per ora rimane, ci servirà per il caricamento
             jsToRun?.let { script ->
-                it.evaluateJavascript(script, null)
+                webView.evaluateJavascript(script, null)
                 onJsExecuted()
             }
         }

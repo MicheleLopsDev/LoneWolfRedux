@@ -7,8 +7,6 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.dataStore
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.google.gson.Gson
-import io.github.luposolitario.lonewolfredux.bridge.SheetInterface // Aggiungi questo import
 import io.github.luposolitario.lonewolfredux.datastore.GameSession
 import io.github.luposolitario.lonewolfredux.datastore.GameSessionSerializer
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -17,9 +15,11 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.io.File
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 
-
-// Definiamo il DataStore come estensione del Context
+// Definiamo il nostro DataStore come estensione del Context.
+// Questo crea un unico file di salvataggio per l'app.
 private val Context.gameSessionDataStore: DataStore<GameSession> by dataStore(
     fileName = "game_session.pb",
     serializer = GameSessionSerializer
@@ -29,35 +29,44 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
 
     private val dataStore = application.gameSessionDataStore
 
+    // Stati per la UI
     private val _bookUrl = MutableStateFlow("about:blank")
-    val bookUrl = _bookUrl.asStateFlow()
+    val bookUrl: StateFlow<String> = _bookUrl.asStateFlow()
 
     private val _sheetUrl = MutableStateFlow("about:blank")
-    val sheetUrl = _sheetUrl.asStateFlow()
+    val sheetUrl: StateFlow<String> = _sheetUrl.asStateFlow()
 
     private val _jsToRunInSheet = MutableStateFlow<String?>(null)
-    val jsToRunInSheet = _jsToRunInSheet.asStateFlow()
+    val jsToRunInSheet: StateFlow<String?> = _jsToRunInSheet.asStateFlow()
 
     private val _isShowingSheet = MutableStateFlow(false)
-    val isShowingSheet = _isShowingSheet.asStateFlow()
+    val isShowingSheet: StateFlow<Boolean> = _isShowingSheet.asStateFlow()
 
-    // Aggiungiamo gli stati per la navigazione
     private val _navigationHistory = MutableStateFlow<List<String>>(emptyList())
     private val _bookmarkUrl = MutableStateFlow<String?>(null)
     val bookmarkUrl: StateFlow<String?> = _bookmarkUrl.asStateFlow()
 
+
     fun initialize(bookId: Int) {
         viewModelScope.launch {
-            // All'avvio, carichiamo lo stato iniziale da DataStore
+            // All'avvio, carichiamo lo stato salvato.
             val session = dataStore.data.first()
-
             _navigationHistory.value = session.navigationHistoryList
             _bookmarkUrl.value = session.bookmarkedParagraphUrl.ifEmpty { null }
 
-            val bookFile = File(getApplication<Application>().filesDir, "books/$bookId/title.htm")
-            val bookPath = "file://${bookFile.absolutePath}"
-            _bookUrl.value = bookPath
-            addUrlToHistory(bookPath) // Aggiungiamo alla cronologia
+            // Se la cronologia è vuota, carichiamo la pagina del titolo.
+            // Altrimenti, carichiamo l'ultima pagina visitata.
+            val urlToLoad = if (session.navigationHistoryList.isEmpty()) {
+                val bookFile = File(getApplication<Application>().filesDir, "books/$bookId/title.htm")
+                "file://${bookFile.absolutePath}"
+            } else {
+                session.navigationHistoryList.last()
+            }
+
+            _bookUrl.value = urlToLoad
+            if (session.navigationHistoryList.isEmpty()) {
+                addUrlToHistory(urlToLoad)
+            }
 
             _sheetUrl.value = when (bookId) {
                 in 1..5 -> "file:///android_asset/sheets/char_sheet_301.htm"
@@ -68,7 +77,25 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    // --- Funzioni per la navigazione e il salvataggio ---
+    // AGGIUNGI questa nuova funzione per gestire il salvataggio di massa
+    fun saveAllSheetData(jsonData: String) {
+        Log.d("GameViewModel", "Salvataggio di massa da JS ricevuto: $jsonData")
+        viewModelScope.launch {
+            // Converti il JSON in una mappa
+            val type = object : TypeToken<Map<String, String>>() {}.type
+            val dataMap: Map<String, String> = Gson().fromJson(jsonData, type)
+
+            // Aggiorna il DataStore con la nuova mappa completa
+            dataStore.updateData { currentSession ->
+                currentSession.toBuilder()
+                    .clearSheetData() // Pulisce i dati vecchi
+                    .putAllSheetData(dataMap) // Inserisce tutti i dati nuovi
+                    .build()
+            }
+        }
+    }
+
+    // --- FINE BLOCCO ---
 
     fun onNewUrl(url: String) {
         _bookUrl.value = url
@@ -80,27 +107,8 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             if (_navigationHistory.value.lastOrNull() != url) {
                 val newHistory = _navigationHistory.value + url
                 _navigationHistory.value = newHistory
+                // Salva la nuova cronologia su disco
                 dataStore.updateData { it.toBuilder().clearNavigationHistory().addAllNavigationHistory(newHistory).build() }
-            }
-        }
-    }
-
-    fun onBookmarkClicked() {
-        viewModelScope.launch {
-            val currentUrl = _bookUrl.value
-            val newBookmark = if (_bookmarkUrl.value == currentUrl) null else currentUrl
-            _bookmarkUrl.value = newBookmark
-            dataStore.updateData { it.toBuilder().setBookmarkedParagraphUrl(newBookmark ?: "").build() }
-        }
-    }
-
-    fun onBackClicked() {
-        viewModelScope.launch {
-            if (_navigationHistory.value.size > 1) {
-                val newHistory = _navigationHistory.value.dropLast(1)
-                _navigationHistory.value = newHistory
-                dataStore.updateData { it.toBuilder().clearNavigationHistory().addAllNavigationHistory(newHistory).build() }
-                _bookUrl.value = newHistory.last()
             }
         }
     }
@@ -111,19 +119,41 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun onGoToBookmarkClicked() {
-        _bookmarkUrl.value?.let { bookmark ->
-            onNewUrl(bookmark)
+    fun onBackClicked() {
+        viewModelScope.launch {
+            if (_navigationHistory.value.size > 1) {
+                val newHistory = _navigationHistory.value.dropLast(1)
+                _navigationHistory.value = newHistory
+                // Salva la cronologia accorciata
+                dataStore.updateData { it.toBuilder().clearNavigationHistory().addAllNavigationHistory(newHistory).build() }
+                _bookUrl.value = newHistory.last()
+            }
         }
+    }
+
+    fun onBookmarkClicked() {
+        viewModelScope.launch {
+            val currentUrl = _bookUrl.value
+            val newBookmark = if (_bookmarkUrl.value == currentUrl) null else currentUrl
+            _bookmarkUrl.value = newBookmark
+            // Salva il segnalibro
+            dataStore.updateData { it.toBuilder().setBookmarkedParagraphUrl(newBookmark ?: "").build() }
+        }
+    }
+
+    fun onGoToBookmarkClicked() {
+        _bookmarkUrl.value?.let { onNewUrl(it) }
     }
 
     fun toggleSheetVisibility() {
         _isShowingSheet.value = !_isShowingSheet.value
     }
 
-    // --- Funzioni per il JavaScript Bridge ---
-
+    // Funzioni per il JavaScript Bridge
     fun saveData(key: String, value: String) {
+        // --- AGGIUNGI QUESTO LOG ---
+        Log.d("GameViewModel", "Salvataggio da JS ricevuto -> Chiave: $key, Valore: $value")
+        // --- FINE AGGIUNTA ---
         viewModelScope.launch {
             dataStore.updateData { currentSession ->
                 currentSession.toBuilder().putSheetData(key, value).build()
@@ -132,6 +162,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     suspend fun getAllSheetData(): Map<String, String> {
+        // Legge e restituisce tutti i dati della scheda
         return dataStore.data.first().sheetDataMap
     }
 
