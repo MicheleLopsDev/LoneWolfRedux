@@ -75,4 +75,19 @@ object AppSettingsManager {
         }
     }
 
+    // In AppSettingsManager.kt
+
+    suspend fun setFontZoomLevel(context: Context, zoomLevel: Int) {
+        context.appSettingsDataStore.updateData { settings ->
+            settings.toBuilder().setFontZoomLevel(zoomLevel).build()
+        }
+    }
+
+    fun getFontZoomLevelFlow(context: Context): Flow<Int> {
+        return context.appSettingsDataStore.data.map { settings ->
+            // Se il valore è 0 (default per int32 in proto), lo impostiamo a 100.
+            if (settings.fontZoomLevel == 0) 100 else settings.fontZoomLevel
+        }
+    }
+
 }

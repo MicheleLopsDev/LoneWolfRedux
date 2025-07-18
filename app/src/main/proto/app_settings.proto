@@ -12,4 +12,6 @@ message AppSettings {
 
   // Memorizza il codice della lingua target (es. "it", "fr", "en")
   string target_language = 8;
+
+  int32 font_zoom_level = 9;
 }

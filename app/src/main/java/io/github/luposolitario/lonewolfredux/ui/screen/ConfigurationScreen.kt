@@ -63,9 +63,6 @@ fun ConfigurationScreen(viewModel: ConfigurationViewModel) {
                 .padding(16.dp)
         ) {
 
-
-
-
             Text("Motore di Traduzione", style = MaterialTheme.typography.titleLarge)
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -138,6 +135,28 @@ fun ConfigurationScreen(viewModel: ConfigurationViewModel) {
                 "Cancella tutti i salvataggi e i progressi per tutti i libri.",
                 style = MaterialTheme.typography.bodySmall,
                 modifier = Modifier.padding(top = 4.dp)
+            )
+
+            val fontZoomLevel by viewModel.fontZoomLevel.collectAsState()
+
+            Spacer(modifier = Modifier.height(16.dp))
+            Divider()
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Text("Accessibilità", style = MaterialTheme.typography.titleLarge)
+
+            Text(
+                text = "Dimensione Testo (${fontZoomLevel}%)",
+                style = MaterialTheme.typography.bodyLarge,
+                modifier = Modifier.padding(top = 8.dp)
+            )
+            Slider(
+                value = fontZoomLevel.toFloat(),
+                onValueChange = { newValue ->
+                    viewModel.setFontZoomLevel(newValue.toInt())
+                },
+                valueRange = 75f..200f, // L'utente può scegliere tra 75% e 200%
+                steps = 24 // Numero di "scatti" intermedi per lo slider
             )
         }
     }

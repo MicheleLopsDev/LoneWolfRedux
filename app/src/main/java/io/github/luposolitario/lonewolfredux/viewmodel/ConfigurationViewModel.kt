@@ -21,6 +21,14 @@ class ConfigurationViewModel(application: Application) : AndroidViewModel(applic
     private val _showResetConfirmationDialog = MutableStateFlow(false)
     val showResetConfirmationDialog: StateFlow<Boolean> = _showResetConfirmationDialog.asStateFlow()
 
+    val fontZoomLevel: StateFlow<Int> = AppSettingsManager.getFontZoomLevelFlow(getApplication())
+        .stateIn(viewModelScope, SharingStarted.Lazily, 100)
+
+    fun setFontZoomLevel(zoomLevel: Int) {
+        viewModelScope.launch {
+            AppSettingsManager.setFontZoomLevel(getApplication(), zoomLevel)
+        }
+    }
 
     // In ConfigurationViewModel.kt
 

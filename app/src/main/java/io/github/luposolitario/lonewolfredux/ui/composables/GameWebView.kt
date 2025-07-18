@@ -8,8 +8,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
 import io.github.luposolitario.lonewolfredux.bridge.SheetInterface
+import io.github.luposolitario.lonewolfredux.bridge.TranslationInterface
 import io.github.luposolitario.lonewolfredux.viewmodel.GameViewModel
-import io.github.luposolitario.lonewolfredux.bridge.TranslationInterface // Importa il nuovo bridge
 
 /**
  * Legge il contenuto di un file dalla cartella assets e lo restituisce come stringa.
@@ -30,7 +30,8 @@ fun BookWebView(
     viewModel: GameViewModel, // <-- Aggiungi viewModel
     jsToRun: String?, // <-- Aggiungi jsToRun
     onJsExecuted: () -> Unit, // <-- Aggiungi onJsExecuted
-    onNewUrl: (String) -> Unit
+    onNewUrl: (String) -> Unit,
+    textZoom: Int // <-- NUOVO
 ) {
     AndroidView(
         modifier = modifier,
@@ -39,6 +40,7 @@ fun BookWebView(
                 settings.javaScriptEnabled = true
                 settings.allowFileAccess = true
                 settings.allowContentAccess = true
+                settings.textZoom = textZoom // <-- APPLICA LO ZOOM
 
                 // Aggiungiamo il nuovo bridge per la traduzione
                 addJavascriptInterface(TranslationInterface(viewModel), "Translator")
@@ -63,6 +65,9 @@ fun BookWebView(
             }
         },
         update = { webView ->
+            if (webView.settings.textZoom != textZoom) {
+                webView.settings.textZoom = textZoom
+            }
             if (webView.url != url) {
                 webView.loadUrl(url)
             }
@@ -76,13 +81,22 @@ fun BookWebView(
 }
 
 @Composable
-fun SheetWebView(modifier: Modifier, url: String, viewModel: GameViewModel, jsToRun: String?, onJsExecuted: () -> Unit) {
+fun SheetWebView(
+    modifier: Modifier,
+    url: String,
+    viewModel: GameViewModel,
+    jsToRun: String?,
+    onJsExecuted: () -> Unit,
+    textZoom: Int // <-- NUOVO
+) {
     AndroidView(
         modifier = modifier,
         factory = { context ->
             WebView(context).apply {
                 settings.javaScriptEnabled = true
                 settings.domStorageEnabled = true
+                settings.textZoom = textZoom // <-- APPLICA LO ZOOM
+
                 addJavascriptInterface(SheetInterface(viewModel), "Android")
                 webViewClient = object : WebViewClient() {
                     override fun onPageFinished(view: WebView?, url: String?) {
@@ -97,6 +111,9 @@ fun SheetWebView(modifier: Modifier, url: String, viewModel: GameViewModel, jsTo
             }
         },
         update = { webView ->
+            if (webView.settings.textZoom != textZoom) {
+                webView.settings.textZoom = textZoom
+            }
             if (webView.url != url) {
                 webView.loadUrl(url)
             }

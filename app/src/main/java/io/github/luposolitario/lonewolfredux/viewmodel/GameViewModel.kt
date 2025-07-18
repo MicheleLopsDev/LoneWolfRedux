@@ -12,8 +12,10 @@ import io.github.luposolitario.lonewolfredux.datastore.SaveSlotInfo
 import io.github.luposolitario.lonewolfredux.engine.TranslationEngine
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.io.File
 
@@ -53,6 +55,14 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _targetLanguage = MutableStateFlow("it")
     val targetLanguage: StateFlow<String> = _targetLanguage.asStateFlow()
+
+    // Aggiungi questo StateFlow
+    val fontZoomLevel: StateFlow<Int> = AppSettingsManager.getFontZoomLevelFlow(getApplication())
+        .stateIn(viewModelScope, SharingStarted.Eagerly, 100)
+
+    // ... (altre dichiarazioni StateFlow)
+    private val _showZoomSlider = MutableStateFlow(false)
+    val showZoomSlider: StateFlow<Boolean> = _showZoomSlider.asStateFlow()
 
     // --- FUNZIONI DI INIZIALIZZAZIONE E GESTIONE DEL GIOCO ---
     fun initialize(bookId: Int) {
@@ -99,6 +109,22 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    // Esponiamo già fontZoomLevel, ottimo. Ora aggiungiamo la funzione per modificarlo.
+
+    fun onZoomChange(zoomLevel: Int) {
+        viewModelScope.launch {
+            // Salva la preferenza in modo persistente
+            AppSettingsManager.setFontZoomLevel(getApplication(), zoomLevel)
+        }
+    }
+
+    fun openZoomSlider() {
+        _showZoomSlider.value = true
+    }
+
+    fun closeZoomSlider() {
+        _showZoomSlider.value = false
+    }
 
     /**
      * Chiamato dal SheetInterface quando il JS della SheetWebView richiede una traduzione.

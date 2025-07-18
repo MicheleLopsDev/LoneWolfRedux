@@ -31,7 +31,37 @@ import io.github.luposolitario.lonewolfredux.ui.composables.SheetWebView
 import io.github.luposolitario.lonewolfredux.viewmodel.GameViewModel
 import io.github.luposolitario.lonewolfredux.ui.composables.SaveLoadDialog
 import androidx.compose.material.icons.filled.Save
+import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Slider
+import androidx.compose.material3.TextButton
+
+@Composable
+fun ZoomSliderPanel(
+    currentZoom: Int,
+    onZoomChange: (Int) -> Unit,
+    onDismiss: () -> Unit
+) {
+    // Usiamo un AlertDialog per semplicità, ma potrebbe essere un BottomSheet o un Dialog custom
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Dimensione Testo (${currentZoom}%)") },
+        text = {
+            Slider(
+                value = currentZoom.toFloat(),
+                onValueChange = { newValue -> onZoomChange(newValue.toInt()) },
+                valueRange = 75f..200f,
+                steps = 24
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Chiudi")
+            }
+        }
+    )
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -46,7 +76,17 @@ fun GameScreen(viewModel: GameViewModel, onClose: () -> Unit) {
     val showSaveLoadDialog by viewModel.showSaveLoadDialog.collectAsState()
     val saveSlots by viewModel.saveSlots.collectAsState()
     val jsToRunInBook by viewModel.jsToRunInBook.collectAsState() // <-- Aggiungi questo
+    val fontZoom by viewModel.fontZoomLevel.collectAsState()
+    val showZoomSlider by viewModel.showZoomSlider.collectAsState()
 
+    // Mostra il pannello dello slider quando lo stato è true
+    if (showZoomSlider) {
+        ZoomSliderPanel(
+            currentZoom = fontZoom,
+            onZoomChange = { viewModel.onZoomChange(it) },
+            onDismiss = { viewModel.closeZoomSlider() }
+        )
+    }
 
     // Se il dialog deve essere mostrato
     if (showSaveLoadDialog) {
@@ -61,7 +101,7 @@ fun GameScreen(viewModel: GameViewModel, onClose: () -> Unit) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(if (isShowingSheet) "Scheda Azione" else "Libro") },
+                title = { Text(if (isShowingSheet) "Scheda Azione" else "") },
                 navigationIcon = {
                     IconButton(onClick = onClose) { Icon(Icons.Default.Close, "Chiudi") }
                 },
@@ -104,6 +144,12 @@ fun GameScreen(viewModel: GameViewModel, onClose: () -> Unit) {
                             Icon(Icons.Default.Bookmark, "Vai al Segnalibro")
                         }
                     }
+                    IconButton(onClick = { viewModel.openZoomSlider() }) {
+                        Icon(
+                            imageVector = Icons.Default.TextFields,
+                            contentDescription = "Regola dimensione testo"
+                        )
+                    }
                     IconButton(onClick = { viewModel.toggleSheetVisibility() }) {
                         Icon(
                             imageVector = if (isShowingSheet) Icons.Default.Book else Icons.Default.Person,
@@ -125,7 +171,8 @@ fun GameScreen(viewModel: GameViewModel, onClose: () -> Unit) {
                     url = sheetUrl,
                     viewModel = viewModel,
                     jsToRun = jsToRun,
-                    onJsExecuted = { viewModel.onJsExecuted() }
+                    onJsExecuted = { viewModel.onJsExecuted() },
+                    textZoom = fontZoom
                 )
             } else {
                 BookWebView(
@@ -134,7 +181,8 @@ fun GameScreen(viewModel: GameViewModel, onClose: () -> Unit) {
                     viewModel = viewModel,
                     jsToRun = jsToRunInBook,
                     onJsExecuted = { viewModel.onBookJsExecuted() },
-                    onNewUrl = { viewModel.onNewUrl(it) }
+                    onNewUrl = { viewModel.onNewUrl(it) },
+                    textZoom = fontZoom
                 )
             }
         }
