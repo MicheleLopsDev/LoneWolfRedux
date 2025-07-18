@@ -14,4 +14,12 @@ message AppSettings {
   string target_language = 8;
 
   int32 font_zoom_level = 9;
+
+  // --- NUOVI CAMPI PER IL TTS ---
+  float tts_speech_rate = 10; // Default 1.0f
+  float tts_pitch = 11;       // Default 1.0f
+  // --- CAMPI SOSTITUITI ---
+  // string tts_voice_male = 12;   <-- RIMUOVI
+  // string tts_voice_female = 13; <-- RIMUOVI
+  string tts_narrator_voice = 12; // <-- AGGIUNGI QUEST
 }

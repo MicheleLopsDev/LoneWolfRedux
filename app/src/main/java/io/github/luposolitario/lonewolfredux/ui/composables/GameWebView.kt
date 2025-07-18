@@ -11,7 +11,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import io.github.luposolitario.lonewolfredux.bridge.SheetInterface
 import io.github.luposolitario.lonewolfredux.bridge.TranslationInterface
 import io.github.luposolitario.lonewolfredux.viewmodel.GameViewModel
-
+import io.github.luposolitario.lonewolfredux.bridge.TtsInterface
 /**
  * Legge il contenuto di un file dalla cartella assets e lo restituisce come stringa.
  */
@@ -28,24 +28,25 @@ private fun getJsFromAssets(context: Context, fileName: String): String {
 fun BookWebView(
     modifier: Modifier,
     url: String,
-    viewModel: GameViewModel, // <-- Aggiungi viewModel
-    jsToRun: String?, // <-- Aggiungi jsToRun
-    onJsExecuted: () -> Unit, // <-- Aggiungi onJsExecuted
+    viewModel: GameViewModel,
+    jsToRun: String?,
+    onJsExecuted: () -> Unit,
     onNewUrl: (String) -> Unit,
-    textZoom: Int // <-- NUOVO
+    textZoom: Int,
+    onWebViewReady: (WebView) -> Unit
 ) {
     AndroidView(
         modifier = modifier,
-        factory = {
-            WebView(it).apply {
+        factory = { context ->
+            WebView(context).apply {
                 settings.javaScriptEnabled = true
                 settings.allowFileAccess = true
                 settings.allowContentAccess = true
                 settings.textZoom = textZoom // <-- APPLICA LO ZOOM
-
-                // Aggiungiamo il nuovo bridge per la traduzione
+                // Aggiungiamo le nostre interfacce
                 addJavascriptInterface(TranslationInterface(viewModel), "Translator")
                 addJavascriptInterface(WebViewTapInterface { viewModel.openZoomSlider() }, "AndroidTap")
+                addJavascriptInterface(TtsInterface(viewModel), "TtsHandler") // <-- NUOVA INTERFACCIA
 
                 webViewClient = object : WebViewClient() {
                     override fun shouldOverrideUrlLoading(view: WebView, url: String): Boolean {
@@ -55,28 +56,34 @@ fun BookWebView(
 
                     override fun onPageFinished(view: WebView?, url: String?) {
                         super.onPageFinished(view, url)
-                        // Quando la pagina è caricata, iniettiamo lo script di traduzione
-                        val script = getJsFromAssets(context, "translator.js")
-                        if (script.isNotEmpty()) {
-                            view?.evaluateJavascript(script, null)
-                        }
+                        // Iniettiamo entrambi gli script di override
+                        val translatorScript = getJsFromAssets(context, "translator.js")
+                        view?.evaluateJavascript(translatorScript, null)
+
+                        val ttsScript = getJsFromAssets(context, "tts_handler.js") // <-- NUOVO SCRIPT
+                        view?.evaluateJavascript(ttsScript, null)
+
+                        // --- NUOVO: Inietta lo script per estrarre il testo ---
+                        val getTextScript = getJsFromAssets(context, "get_text.js")
+                        view?.evaluateJavascript(getTextScript, null)
+
                         val doubleTapScript = getJsFromAssets(context, "double_tap_detector.js")
                         if (doubleTapScript.isNotEmpty()) {
                             view?.evaluateJavascript(doubleTapScript, null)
                         }
                     }
-
                 }
+                onWebViewReady(this)
             }
         },
         update = { webView ->
+            // La logica di update rimane la stessa, ma dobbiamo applicare lo zoom
             if (webView.settings.textZoom != textZoom) {
                 webView.settings.textZoom = textZoom
             }
             if (webView.url != url) {
                 webView.loadUrl(url)
             }
-            // Esegui script JS inviati dal ViewModel
             jsToRun?.let {
                 webView.evaluateJavascript(it, null)
                 onJsExecuted()

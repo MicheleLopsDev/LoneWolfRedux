@@ -90,4 +90,25 @@ object AppSettingsManager {
         }
     }
 
+    fun getTtsSettingsFlow(context: Context): Flow<AppSettings> {
+        // Espone l'intero oggetto AppSettings per osservare tutte le modifiche
+        return context.appSettingsDataStore.data
+    }
+
+    // In AppSettingsManager.kt
+
+    suspend fun updateTtsSettings(
+        context: Context,
+        rate: Float? = null,
+        pitch: Float? = null,
+        narratorVoice: String? = null // <-- Modificato
+    ) {
+        context.appSettingsDataStore.updateData { settings ->
+            val builder = settings.toBuilder()
+            rate?.let { builder.setTtsSpeechRate(it) }
+            pitch?.let { builder.setTtsPitch(it) }
+            narratorVoice?.let { builder.setTtsNarratorVoice(it) } // <-- Modificato
+            builder.build()
+        }
+    }
 }

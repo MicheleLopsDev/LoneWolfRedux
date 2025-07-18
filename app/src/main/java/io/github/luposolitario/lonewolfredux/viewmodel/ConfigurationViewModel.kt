@@ -3,6 +3,7 @@ package io.github.luposolitario.lonewolfredux.viewmodel
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import io.github.luposolitario.lonewolfredux.datastore.AppSettings
 import io.github.luposolitario.lonewolfredux.datastore.AppSettingsManager
 import io.github.luposolitario.lonewolfredux.datastore.SaveGameManager
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -74,6 +75,24 @@ class ConfigurationViewModel(application: Application) : AndroidViewModel(applic
     fun setUseAdvancedTranslation(enabled: Boolean) {
         viewModelScope.launch {
             AppSettingsManager.setUseAdvancedTranslation(getApplication(), enabled)
+        }
+    }
+
+    // Esponi l'intero oggetto delle impostazioni
+    val appSettings: StateFlow<AppSettings> = AppSettingsManager.getTtsSettingsFlow(getApplication())
+        .stateIn(viewModelScope, SharingStarted.Lazily, AppSettings.getDefaultInstance())
+
+    // Funzioni specifiche per aggiornare le singole preferenze
+    fun setSpeechRate(rate: Float) {
+        viewModelScope.launch { AppSettingsManager.updateTtsSettings(getApplication(), rate = rate) }
+    }
+    fun setPitch(pitch: Float) {
+        viewModelScope.launch { AppSettingsManager.updateTtsSettings(getApplication(), pitch = pitch) }
+    }
+
+    fun setNarratorVoice(name: String) {
+        viewModelScope.launch {
+            AppSettingsManager.updateTtsSettings(getApplication(), narratorVoice = name)
         }
     }
 

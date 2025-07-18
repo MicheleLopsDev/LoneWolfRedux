@@ -1,5 +1,6 @@
 package io.github.luposolitario.lonewolfredux.ui.screen
 
+import android.webkit.WebView
 import androidx.compose.animation.AnimatedVisibility // Ancora necessaria se vuoi altre animazioni, ma non per l'indicatore di zoom
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures // Importa questo!
@@ -44,6 +45,10 @@ import io.github.luposolitario.lonewolfredux.ui.composables.BookWebView
 import io.github.luposolitario.lonewolfredux.ui.composables.SaveLoadDialog
 import io.github.luposolitario.lonewolfredux.ui.composables.SheetWebView
 import io.github.luposolitario.lonewolfredux.viewmodel.GameViewModel
+import androidx.compose.material.icons.filled.VolumeUp
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 
 @Composable
 fun ZoomSliderPanel(
@@ -85,7 +90,7 @@ fun GameScreen(viewModel: GameViewModel, onClose: () -> Unit) {
     val jsToRunInBook by viewModel.jsToRunInBook.collectAsState()
     val fontZoom by viewModel.fontZoomLevel.collectAsState()
     val showZoomSlider by viewModel.showZoomSlider.collectAsState()
-    // val showZoomIndicator by viewModel.showZoomIndicator.collectAsState() // Non più necessario
+    var webViewRef by remember { mutableStateOf<WebView?>(null) } // Questa reference è cruciale
 
     if (showZoomSlider) {
         ZoomSliderPanel(
@@ -123,6 +128,19 @@ fun GameScreen(viewModel: GameViewModel, onClose: () -> Unit) {
                                 tint = if (isBookCompleted) Color(0xFF4CAF50) else LocalContentColor.current
                             )
                         }
+                        IconButton(onClick = {
+                            webViewRef?.evaluateJavascript("getVisibleText()") { fullText ->
+                                val cleanText = fullText.removeSurrounding("\"")
+                                if (cleanText.isNotBlank()) {
+                                    viewModel.speakText(cleanText)
+                                }
+                            }
+                        }) {
+                            Icon(
+                                imageVector = Icons.Default.VolumeUp,
+                                contentDescription = "Leggi pagina intera"
+                            )
+                        }
                         IconButton(onClick = { viewModel.onHomeClicked() }) {
                             Icon(Icons.Default.Home, "Home")
                         }
@@ -143,12 +161,6 @@ fun GameScreen(viewModel: GameViewModel, onClose: () -> Unit) {
                         ) {
                             Icon(Icons.Default.Bookmark, "Vai al Segnalibro")
                         }
-                    }
-                    IconButton(onClick = { viewModel.openZoomSlider() }) {
-                        Icon(
-                            imageVector = Icons.Default.TextFields,
-                            contentDescription = "Regola dimensione testo"
-                        )
                     }
                     IconButton(onClick = { viewModel.toggleSheetVisibility() }) {
                         Icon(
@@ -190,7 +202,8 @@ fun GameScreen(viewModel: GameViewModel, onClose: () -> Unit) {
                     jsToRun = jsToRunInBook,
                     onJsExecuted = { viewModel.onBookJsExecuted() },
                     onNewUrl = { viewModel.onNewUrl(it) },
-                    textZoom = fontZoom
+                    textZoom = fontZoom,
+                    onWebViewReady = { webView -> webViewRef = webView }
                 )
             }
 

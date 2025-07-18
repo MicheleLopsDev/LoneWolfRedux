@@ -3,13 +3,16 @@ package io.github.luposolitario.lonewolfredux.viewmodel
 import android.app.Application
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.application
 import androidx.lifecycle.viewModelScope
 import com.google.gson.Gson
+import io.github.luposolitario.lonewolfredux.datastore.AppSettings
 import io.github.luposolitario.lonewolfredux.datastore.AppSettingsManager
 import io.github.luposolitario.lonewolfredux.datastore.GameSession
 import io.github.luposolitario.lonewolfredux.datastore.SaveGameManager
 import io.github.luposolitario.lonewolfredux.datastore.SaveSlotInfo
 import io.github.luposolitario.lonewolfredux.engine.TranslationEngine
+import io.github.luposolitario.lonewolfredux.service.TtsService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -64,6 +67,25 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     private val _showZoomSlider = MutableStateFlow(false)
     val showZoomSlider: StateFlow<Boolean> = _showZoomSlider.asStateFlow()
 
+    // --- MODIFICA #1: LEGGI TUTTE LE IMPOSTAZIONI E TIENILE PRONTE ---
+    val appSettings: StateFlow<AppSettings> = AppSettingsManager.getTtsSettingsFlow(getApplication())
+        .stateIn(viewModelScope, SharingStarted.Eagerly, AppSettings.getDefaultInstance())
+
+
+
+    // --- NUOVO: Aggiungi l'istanza del TtsService ---
+    private var ttsService: TtsService? = null
+
+
+
+    init {
+        // Inizializza il servizio nel costruttore del ViewModel
+        ttsService = TtsService(application) {
+            Log.d("GameViewModel", "Motore TTS pronto.")
+        }
+    }
+
+
     // --- FUNZIONI DI INIZIALIZZAZIONE E GESTIONE DEL GIOCO ---
     fun initialize(bookId: Int) {
         if (bookId <= 0) {
@@ -71,6 +93,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             return
         }
         currentBookId = bookId
+
         // Aggiorna la logica per usare il nuovo manager
         viewModelScope.launch {
             _isCurrentBookCompleted.value = AppSettingsManager.isBookCompleted(getApplication(), currentBookId)
@@ -81,7 +104,6 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
 
         loadGame(1) // Carica lo slot 1 del libro corrente
     }
-
 
     /**
      * Chiamato dal TranslationInterface quando il JS richiede una traduzione.
@@ -109,7 +131,17 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    // Esponiamo già fontZoomLevel, ottimo. Ora aggiungiamo la funzione per modificarlo.
+    // --- NUOVA FUNZIONE ---
+    fun speakText(text: String) {
+        // Per ora, usiamo una "voce" generica. In futuro potremmo passare il personaggio.
+        ttsService?.speak(text, appSettings.value)
+    }
+
+    // Assicurati di rilasciare le risorse quando il ViewModel viene distrutto
+    override fun onCleared() {
+        super.onCleared()
+        ttsService?.shutdown()
+    }
 
     fun onZoomChange(zoomLevel: Int) {
         viewModelScope.launch {
