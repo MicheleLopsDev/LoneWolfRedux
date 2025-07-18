@@ -1,8 +1,12 @@
 package io.github.luposolitario.lonewolfredux.ui.screen
 
+import androidx.compose.animation.AnimatedVisibility // Ancora necessaria se vuoi altre animazioni, ma non per l'indicatore di zoom
+import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures // Importa questo!
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Book
@@ -13,29 +17,33 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.TextFields
+import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Star
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import io.github.luposolitario.lonewolfredux.ui.composables.BookWebView
+import io.github.luposolitario.lonewolfredux.ui.composables.SaveLoadDialog
 import io.github.luposolitario.lonewolfredux.ui.composables.SheetWebView
 import io.github.luposolitario.lonewolfredux.viewmodel.GameViewModel
-import io.github.luposolitario.lonewolfredux.ui.composables.SaveLoadDialog
-import androidx.compose.material.icons.filled.Save
-import androidx.compose.material.icons.filled.TextFields
-import androidx.compose.material.icons.outlined.CheckCircle
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Slider
-import androidx.compose.material3.TextButton
 
 @Composable
 fun ZoomSliderPanel(
@@ -43,7 +51,6 @@ fun ZoomSliderPanel(
     onZoomChange: (Int) -> Unit,
     onDismiss: () -> Unit
 ) {
-    // Usiamo un AlertDialog per semplicità, ma potrebbe essere un BottomSheet o un Dialog custom
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Dimensione Testo (${currentZoom}%)") },
@@ -75,11 +82,11 @@ fun GameScreen(viewModel: GameViewModel, onClose: () -> Unit) {
     val isBookCompleted by viewModel.isCurrentBookCompleted.collectAsState()
     val showSaveLoadDialog by viewModel.showSaveLoadDialog.collectAsState()
     val saveSlots by viewModel.saveSlots.collectAsState()
-    val jsToRunInBook by viewModel.jsToRunInBook.collectAsState() // <-- Aggiungi questo
+    val jsToRunInBook by viewModel.jsToRunInBook.collectAsState()
     val fontZoom by viewModel.fontZoomLevel.collectAsState()
     val showZoomSlider by viewModel.showZoomSlider.collectAsState()
+    // val showZoomIndicator by viewModel.showZoomIndicator.collectAsState() // Non più necessario
 
-    // Mostra il pannello dello slider quando lo stato è true
     if (showZoomSlider) {
         ZoomSliderPanel(
             currentZoom = fontZoom,
@@ -88,14 +95,12 @@ fun GameScreen(viewModel: GameViewModel, onClose: () -> Unit) {
         )
     }
 
-    // Se il dialog deve essere mostrato
     if (showSaveLoadDialog) {
         SaveLoadDialog(
             slots = saveSlots,
             onDismiss = { viewModel.closeSaveLoadDialog() },
             onSave = { slotId -> viewModel.saveGame(slotId) },
             onLoad = { slotId -> viewModel.loadGame(slotId) },
-
         )
     }
     Scaffold(
@@ -107,7 +112,6 @@ fun GameScreen(viewModel: GameViewModel, onClose: () -> Unit) {
                 },
                 actions = {
                     if (isShowingSheet) {
-                        // Aggiungiamo un pulsante unico per aprire il dialog di salvataggio/caricamento
                         IconButton(onClick = { viewModel.openSaveLoadDialog() }) {
                             Icon(Icons.Default.Save, contentDescription = "Salva o Carica")
                         }
@@ -116,7 +120,7 @@ fun GameScreen(viewModel: GameViewModel, onClose: () -> Unit) {
                             Icon(
                                 imageVector = if (isBookCompleted) Icons.Filled.CheckCircle else Icons.Outlined.CheckCircle,
                                 contentDescription = "Segna come completato",
-                                tint = if (isBookCompleted) Color(0xFF4CAF50) else LocalContentColor.current // Verde se completato
+                                tint = if (isBookCompleted) Color(0xFF4CAF50) else LocalContentColor.current
                             )
                         }
                         IconButton(onClick = { viewModel.onHomeClicked() }) {
@@ -126,11 +130,7 @@ fun GameScreen(viewModel: GameViewModel, onClose: () -> Unit) {
                             Icon(Icons.Default.ArrowBack, "Indietro")
                         }
                         IconButton(onClick = { viewModel.onBookmarkClicked() }) {
-                            // --- INIZIO MODIFICA ---
-                            // La stella è gialla se il segnalibro NON è nullo,
-                            // indipendentemente dalla pagina corrente.
                             val isBookmarked = bookmarkUrl != null
-                            // --- FINE MODIFICA ---
                             Icon(
                                 if (isBookmarked) Icons.Filled.Star else Icons.Outlined.Star,
                                 "Segnalibro",
@@ -164,6 +164,14 @@ fun GameScreen(viewModel: GameViewModel, onClose: () -> Unit) {
             modifier = Modifier
                 .padding(padding)
                 .fillMaxSize()
+                // Rimosso .pointerInput per i gesti di zoom
+                .pointerInput(Unit) { // Nuovo blocco per il doppio tap
+                    detectTapGestures(
+                        onDoubleTap = {
+                            viewModel.openZoomSlider() // Apri lo slider con doppio tap
+                        }
+                    )
+                }
         ) {
             if (isShowingSheet) {
                 SheetWebView(
@@ -185,6 +193,8 @@ fun GameScreen(viewModel: GameViewModel, onClose: () -> Unit) {
                     textZoom = fontZoom
                 )
             }
+
+            // Rimosso l'indicatore di zoom gestuale
         }
     }
 }

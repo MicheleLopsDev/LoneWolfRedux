@@ -60,7 +60,7 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     val fontZoomLevel: StateFlow<Int> = AppSettingsManager.getFontZoomLevelFlow(getApplication())
         .stateIn(viewModelScope, SharingStarted.Eagerly, 100)
 
-    // ... (altre dichiarazioni StateFlow)
+    // Aggiungiamo un StateFlow per lo zoom temporaneo durante il gesto
     private val _showZoomSlider = MutableStateFlow(false)
     val showZoomSlider: StateFlow<Boolean> = _showZoomSlider.asStateFlow()
 
