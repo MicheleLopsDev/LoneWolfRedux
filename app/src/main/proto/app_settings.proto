@@ -9,4 +9,7 @@ message AppSettings {
 
   // Se true, usa il motore avanzato (Gemma). Se false (default), usa ML Kit.
   bool use_advanced_translation = 2;
+
+  // Memorizza il codice della lingua target (es. "it", "fr", "en")
+  string target_language = 8;
 }

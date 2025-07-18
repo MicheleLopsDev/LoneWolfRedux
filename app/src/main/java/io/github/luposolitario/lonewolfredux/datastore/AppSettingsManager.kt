@@ -3,7 +3,9 @@ package io.github.luposolitario.lonewolfredux.datastore
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.dataStore
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 
 // Definiamo il DataStore per le impostazioni dell'app
 private val Context.appSettingsDataStore: DataStore<AppSettings> by dataStore(
@@ -58,4 +60,19 @@ object AppSettingsManager {
     suspend fun isAdvancedTranslationEnabled(context: Context): Boolean {
         return context.appSettingsDataStore.data.first().useAdvancedTranslation
     }
+
+    suspend fun setTargetLanguage(context: Context, languageCode: String) {
+        context.appSettingsDataStore.updateData { settings ->
+            settings.toBuilder().setTargetLanguage(languageCode).build()
+        }
+    }
+
+    // Restituisce il codice della lingua come Flow per osservarne i cambiamenti
+    fun getTargetLanguageFlow(context: Context): Flow<String> {
+        return context.appSettingsDataStore.data.map { settings ->
+            // Se non è impostato, l'italiano è il default
+            settings.targetLanguage.ifEmpty { "it" }
+        }
+    }
+
 }

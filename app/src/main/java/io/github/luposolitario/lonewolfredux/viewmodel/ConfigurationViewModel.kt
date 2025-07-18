@@ -21,6 +21,27 @@ class ConfigurationViewModel(application: Application) : AndroidViewModel(applic
     private val _showResetConfirmationDialog = MutableStateFlow(false)
     val showResetConfirmationDialog: StateFlow<Boolean> = _showResetConfirmationDialog.asStateFlow()
 
+
+    // In ConfigurationViewModel.kt
+
+    // Mappa delle lingue supportate (codice -> nome visualizzato)
+    val availableLanguages = mapOf(
+        "en" to "Inglese (Nessuna Traduzione)",
+        "it" to "Italiano",
+        "fr" to "Francese",
+        "es" to "Spagnolo",
+        "de" to "Tedesco"
+    )
+
+    val targetLanguage: StateFlow<String> = AppSettingsManager.getTargetLanguageFlow(getApplication())
+        .stateIn(viewModelScope, SharingStarted.Lazily, "it")
+
+    fun setTargetLanguage(languageCode: String) {
+        viewModelScope.launch {
+            AppSettingsManager.setTargetLanguage(getApplication(), languageCode)
+        }
+    }
+
     fun onResetTotalClicked() {
         _showResetConfirmationDialog.value = true
     }

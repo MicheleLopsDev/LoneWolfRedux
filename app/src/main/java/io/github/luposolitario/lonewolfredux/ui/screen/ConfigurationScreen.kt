@@ -12,6 +12,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -24,7 +27,9 @@ fun ConfigurationScreen(viewModel: ConfigurationViewModel) {
 
     val showDialog by viewModel.showResetConfirmationDialog.collectAsState()
     val useAdvancedTranslation by viewModel.isAdvancedTranslationEnabled.collectAsState()
-
+    val targetLanguage by viewModel.targetLanguage.collectAsState()
+    val languageOptions = viewModel.availableLanguages
+    var langMenuExpanded by remember { mutableStateOf(false) }
     // Dialogo di conferma per il reset totale
     if (showDialog) {
         AlertDialog(
@@ -58,6 +63,9 @@ fun ConfigurationScreen(viewModel: ConfigurationViewModel) {
                 .padding(16.dp)
         ) {
 
+
+
+
             Text("Motore di Traduzione", style = MaterialTheme.typography.titleLarge)
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -83,6 +91,37 @@ fun ConfigurationScreen(viewModel: ConfigurationViewModel) {
                 )
             }
             // --- FINE BLOCCO NUOVO ---
+
+            Spacer(modifier = Modifier.height(16.dp))
+            Text("Lingua di Traduzione", style = MaterialTheme.typography.titleLarge)
+
+            ExposedDropdownMenuBox(
+                expanded = langMenuExpanded,
+                onExpandedChange = { langMenuExpanded = !langMenuExpanded }
+            ) {
+                OutlinedTextField(
+                    value = languageOptions[targetLanguage] ?: "Italiano",
+                    onValueChange = {},
+                    readOnly = true,
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = langMenuExpanded) },
+                    modifier = Modifier.menuAnchor().fillMaxWidth()
+                )
+                ExposedDropdownMenu(
+                    expanded = langMenuExpanded,
+                    onDismissRequest = { langMenuExpanded = false }
+                ) {
+                    languageOptions.forEach { (code, name) ->
+                        DropdownMenuItem(
+                            text = { Text(name) },
+                            onClick = {
+                                viewModel.setTargetLanguage(code)
+                                langMenuExpanded = false
+                            }
+                        )
+                    }
+                }
+            }
+
 
             Text("Azioni Partita", style = MaterialTheme.typography.titleLarge)
             Spacer(modifier = Modifier.height(16.dp))

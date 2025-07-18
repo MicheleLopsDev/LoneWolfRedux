@@ -51,6 +51,8 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     private val _isCurrentBookCompleted = MutableStateFlow(false)
     val isCurrentBookCompleted: StateFlow<Boolean> = _isCurrentBookCompleted.asStateFlow()
 
+    private val _targetLanguage = MutableStateFlow("it")
+    val targetLanguage: StateFlow<String> = _targetLanguage.asStateFlow()
 
     // --- FUNZIONI DI INIZIALIZZAZIONE E GESTIONE DEL GIOCO ---
     fun initialize(bookId: Int) {
@@ -62,6 +64,9 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         // Aggiorna la logica per usare il nuovo manager
         viewModelScope.launch {
             _isCurrentBookCompleted.value = AppSettingsManager.isBookCompleted(getApplication(), currentBookId)
+            AppSettingsManager.getTargetLanguageFlow(getApplication()).collect {
+                _targetLanguage.value = it
+            }
         }
 
         loadGame(1) // Carica lo slot 1 del libro corrente
@@ -71,10 +76,23 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     /**
      * Chiamato dal TranslationInterface quando il JS richiede una traduzione.
      */
+// Modifica onTranslateRequest
     fun onTranslateRequest(text: String, callbackId: Int) {
-        viewModelScope.launch(Dispatchers.IO) { // Esegui la traduzione su un thread IO
-            val translatedText = translationEngine.translate(text)
-            // L'escape degli apici è fondamentale per non rompere la stringa JS
+        viewModelScope.launch(Dispatchers.IO) {
+            val targetLang = _targetLanguage.value
+
+            // Se la lingua target è inglese, non facciamo nulla.
+            // Restituiamo il testo originale al JavaScript.
+            if (targetLang == "en" || text.isBlank()) {
+                val escapedText = text.replace("'", "\\'")
+                val script = "window.onTranslationResult('$escapedText', $callbackId);"
+                runJsInBookView(script)
+                return@launch
+            }
+
+            // Altrimenti, usiamo il motore di traduzione con la lingua target.
+            // La tua classe TranslationEngine è già pronta per questo.
+            val translatedText = translationEngine.translate(text, targetLanguage.value)
             val escapedText = translatedText.replace("'", "\\'")
             val script = "window.onTranslationResult('$escapedText', $callbackId);"
             runJsInBookView(script)
@@ -87,7 +105,20 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
      */
     fun onSheetTranslateRequest(text: String, callbackId: Int) {
         viewModelScope.launch(Dispatchers.IO) {
-            val translatedText = translationEngine.translate(text)
+            val targetLang = _targetLanguage.value
+
+            // Se la lingua target è inglese, non facciamo nulla.
+            // Restituiamo il testo originale al JavaScript.
+            if (targetLang == "en" || text.isBlank()) {
+                val escapedText = text.replace("'", "\\'")
+                val script = "window.onTranslationResult('$escapedText', $callbackId);"
+                runJsInSheetView(script) // Invia lo script alla SheetWebView
+                return@launch
+            }
+
+            // Altrimenti, usiamo il motore di traduzione con la lingua target.
+            // La tua classe TranslationEngine è già pronta per questo.
+            val translatedText = translationEngine.translate(text, targetLanguage.value)
             val escapedText = translatedText.replace("'", "\\'")
             val script = "window.onTranslationResult('$escapedText', $callbackId);"
             runJsInSheetView(script) // Invia lo script alla SheetWebView
