@@ -22,7 +22,9 @@ class MainActivity : ComponentActivity() {
                         startActivity(Intent(this, ConfigurationActivity::class.java))
                     },
                     // Lasciamo questo vuoto per ora, come da piano
-                    onNavigateToLlmManager = { /* TODO */ }
+                    onNavigateToLlmManager = {
+                        startActivity(Intent(this, LlmManagerActivity::class.java))
+                    }
                 )
             }
         }
