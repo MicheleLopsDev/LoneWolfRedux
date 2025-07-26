@@ -7,4 +7,9 @@ message ModelSettings {
   string hugging_face_token = 1;
   string dm_model_file_path = 2;
   string narrative_tone = 3;
+
+  string gemma_temperature = 4; // Es. "0.9"
+  string gemma_top_k = 5;       // Es. "50"
+  string gemma_top_p = 6;       // Es. "1.0"
+  string gemma_n_len = 7;     // Max token in risposta
 }

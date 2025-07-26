@@ -74,6 +74,7 @@ dependencies {
     implementation(libs.androidx.material.icons.extended.android)
     implementation(libs.translate)
     implementation(libs.language.id)
+    implementation(libs.okhttp)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
