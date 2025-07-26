@@ -22,4 +22,6 @@ message AppSettings {
   // string tts_voice_male = 12;   <-- RIMUOVI
   // string tts_voice_female = 13; <-- RIMUOVI
   string tts_narrator_voice = 12; // <-- AGGIUNGI QUEST
+  // --- AGGIUNGI QUESTA RIGA ---
+  string narrative_tone = 3; // Salverà "NEUTRO", "EPICO", ecc.
 }

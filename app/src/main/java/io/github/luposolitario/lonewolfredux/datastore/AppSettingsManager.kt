@@ -95,6 +95,33 @@ object AppSettingsManager {
         return context.appSettingsDataStore.data
     }
 
+    // Dentro la classe AppSettingsManager
+
+// ... (metodi esistenti per use_advanced_translation, ecc.) ...
+
+// --- INIZIO BLOCCO NUOVO ---
+
+    /**
+     * Salva il tono narrativo scelto dall'utente.
+     */
+    suspend fun setNarrativeTone(context: Context, tone: String) {
+        context.appSettingsDataStore.updateData { settings ->
+            settings.toBuilder().setNarrativeTone(tone).build()
+        }
+    }
+
+    /**
+     * Espone il tono narrativo come un Flow per osservarlo in tempo reale.
+     * Se non è impostato, restituisce "NEUTRO" come valore di default.
+     */
+    fun getNarrativeToneFlow(context: Context): Flow<String> {
+        return context.appSettingsDataStore.data.map { settings ->
+            settings.narrativeTone.ifEmpty { "NEUTRO" }
+        }
+    }
+
+// --- FINE BLOCCO NUOVO ---
+
     // In AppSettingsManager.kt
 
     suspend fun updateTtsSettings(
