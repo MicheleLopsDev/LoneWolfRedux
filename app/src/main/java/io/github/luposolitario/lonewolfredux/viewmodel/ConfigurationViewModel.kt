@@ -3,6 +3,7 @@ package io.github.luposolitario.lonewolfredux.viewmodel
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import io.github.luposolitario.lonewolfredux.data.NarrativeTone
 import io.github.luposolitario.lonewolfredux.datastore.AppSettings
 import io.github.luposolitario.lonewolfredux.datastore.AppSettingsManager
 import io.github.luposolitario.lonewolfredux.datastore.SaveGameManager
@@ -11,6 +12,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -31,8 +33,25 @@ class ConfigurationViewModel(application: Application) : AndroidViewModel(applic
         }
     }
 
-    // In ConfigurationViewModel.kt
+    // Espone il tono narrativo attualmente salvato come StateFlow
+    val selectedNarrativeTone: StateFlow<NarrativeTone> = AppSettingsManager.getNarrativeToneFlow(getApplication())
+        .map { toneKey -> NarrativeTone.fromKey(toneKey) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), NarrativeTone.Neutro)
 
+    // Espone la lista di tutti i toni disponibili
+    val availableTones: List<NarrativeTone> = NarrativeTone.allTones
+
+    /**
+     * Chiamato dalla UI quando l'utente seleziona un nuovo tono.
+     */
+    fun onNarrativeToneSelected(tone: NarrativeTone) {
+        viewModelScope.launch {
+            // Chiamiamo il metodo sull'object passando il contesto
+            AppSettingsManager.setNarrativeTone(getApplication(), tone.key)
+        }
+    }
+
+    // --- FINE BLOCCO NUOVO ---
     // Mappa delle lingue supportate (codice -> nome visualizzato)
     val availableLanguages = mapOf(
         "en" to "Inglese (Nessuna Traduzione)",
