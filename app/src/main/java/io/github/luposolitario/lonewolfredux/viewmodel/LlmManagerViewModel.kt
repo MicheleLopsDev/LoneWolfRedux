@@ -3,17 +3,19 @@ package io.github.luposolitario.lonewolfredux.viewmodel
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.work.*
 import io.github.luposolitario.lonewolfredux.datastore.SettingsDataStoreManager
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.stateIn
+import io.github.luposolitario.lonewolfredux.worker.ModelDownloadWorker
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import java.io.File
 
 class LlmManagerViewModel(
     application: Application,
     private val settingsDataStoreManager: SettingsDataStoreManager
 ) : AndroidViewModel(application) {
+
+    private val workManager = WorkManager.getInstance(application)
 
     val uiState: StateFlow<ModelSettingsUiState> = settingsDataStoreManager.modelSettingsFlow
         .map { settings ->
@@ -30,6 +32,15 @@ class LlmManagerViewModel(
             started = SharingStarted.WhileSubscribed(5000),
             initialValue = ModelSettingsUiState()
         )
+
+    private val _downloadState = MutableStateFlow<DownloadState>(DownloadState.Idle)
+    val downloadState: StateFlow<DownloadState> = _downloadState.asStateFlow()
+
+    val isModelDownloaded: StateFlow<Boolean> = settingsDataStoreManager.modelSettingsFlow
+        .map { !it.dmModelFilePath.isNullOrEmpty() && File(it.dmModelFilePath).exists() }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    // --- FUNZIONI CHIAMATE DALLA UI ---
 
     fun onTokenChanged(newToken: String) {
         viewModelScope.launch {
@@ -60,7 +71,57 @@ class LlmManagerViewModel(
             settingsDataStoreManager.updateGemmaNLen(newLength)
         }
     }
+
+    // Dentro la funzione startModelDownload()
+    fun startModelDownload() {
+        val dmDirectory = getApplication<Application>().filesDir
+        val modelFile = File(dmDirectory, "gemma-3n-E4B-it-int4.task")
+        val modelUrl =
+            "https://huggingface.co/google/gemma-3n-E4B-it-litert-preview/resolve/main/gemma-3n-E4B-it-int4.task?download=true"
+
+        val inputData = workDataOf(
+            ModelDownloadWorker.KEY_URL to modelUrl,
+            ModelDownloadWorker.KEY_DESTINATION to modelFile.absolutePath
+        )
+
+        val downloadRequest = OneTimeWorkRequestBuilder<ModelDownloadWorker>()
+            .setInputData(inputData)
+            .build()
+
+        workManager.enqueue(downloadRequest)
+
+        workManager.getWorkInfoByIdLiveData(downloadRequest.id).observeForever { workInfo ->
+            if (workInfo != null) {
+                when (workInfo.state) {
+                    WorkInfo.State.RUNNING -> {
+                        // --- INIZIO BLOCCO MODIFICATO ---
+                        // Calcoliamo la percentuale dai byte
+                        val bytesDownloaded =
+                            workInfo.progress.getLong(ModelDownloadWorker.KEY_BYTES_DOWNLOADED, 0)
+                        val totalBytes = workInfo.progress.getLong(
+                            ModelDownloadWorker.KEY_TOTAL_BYTES,
+                            1
+                        ) // Evita divisione per zero
+                        val progress = ((bytesDownloaded * 100) / totalBytes).toInt()
+                        _downloadState.value = DownloadState.Downloading(progress)
+                        // --- FINE BLOCCO MODIFICATO ---
+                    }
+
+                    WorkInfo.State.SUCCEEDED -> {
+                        _downloadState.value = DownloadState.Completed
+                    }
+
+                    WorkInfo.State.FAILED -> {
+                        _downloadState.value = DownloadState.Failed("Download fallito")
+                    }
+
+                    else -> {}
+                }
+            }
+        }
+    }
 }
+// --- CLASSI DI STATO PER LA UI ---
 
 data class ModelSettingsUiState(
     val huggingFaceToken: String = "",
@@ -69,3 +130,10 @@ data class ModelSettingsUiState(
     val topP: String = "1.0",
     val maxLength: String = "2048"
 )
+
+sealed class DownloadState {
+    object Idle : DownloadState()
+    data class Downloading(val progress: Int) : DownloadState()
+    object Completed : DownloadState()
+    data class Failed(val error: String) : DownloadState()
+}
