@@ -11,7 +11,7 @@ import androidx.work.CoroutineWorker
 import androidx.work.ForegroundInfo
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
-import io.github.luposolitario.lonewolfredux.datastore.SettingsDataStoreManager
+import io.github.luposolitario.lonewolfredux.datastore.ModelSettingsDataStoreManager
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.first
 import java.io.File
@@ -62,7 +62,7 @@ class ModelDownloadWorker(private val context: Context, params: WorkerParameters
         val urlString = inputData.getString(KEY_URL) ?: return@coroutineScope Result.failure()
         val destinationPath = inputData.getString(KEY_DESTINATION) ?: return@coroutineScope Result.failure()
 
-        val settingsManager = SettingsDataStoreManager(context)
+        val settingsManager = ModelSettingsDataStoreManager(context)
         val accessToken = settingsManager.modelSettingsFlow.first().huggingFaceToken
 
         if (accessToken.isEmpty()) {

@@ -20,7 +20,7 @@ private val Context.settingsDataStore: DataStore<ModelSettings> by dataStore(
  *
  * @param context Il contesto dell'applicazione, necessario per accedere al DataStore.
  */
-class SettingsDataStoreManager(private val context: Context) {
+class ModelSettingsDataStoreManager(private val context: Context) {
 
     val modelSettingsFlow: Flow<ModelSettings> = context.settingsDataStore.data
         .catch { exception ->
@@ -30,8 +30,6 @@ class SettingsDataStoreManager(private val context: Context) {
                 throw exception
             }
         }
-
-    // --- METODI PER AGGIORNARE I CAMPI (CORRETTI SECONDO IL TUO .PROTO) ---
 
     suspend fun updateHuggingFaceToken(token: String) {
         context.settingsDataStore.updateData { settings ->
@@ -50,8 +48,6 @@ class SettingsDataStoreManager(private val context: Context) {
             settings.toBuilder().setNarrativeTone(tone).build()
         }
     }
-
-    // --- METODI PER I PARAMETRI DI GEMMA (CORRETTI SECONDO IL TUO .PROTO) ---
 
     suspend fun updateGemmaTemperature(temp: String) {
         context.settingsDataStore.updateData { settings ->
