@@ -4,7 +4,7 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.work.*
-import io.github.luposolitario.lonewolfredux.datastore.ModelSettingsDataStoreManager
+import io.github.luposolitario.lonewolfredux.datastore.ModelSettingsManager
 import io.github.luposolitario.lonewolfredux.worker.ModelDownloadWorker
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -12,12 +12,12 @@ import java.io.File
 
 class LlmManagerViewModel(
     application: Application,
-    private val modelSettingsDataStoreManager: ModelSettingsDataStoreManager
+    private val modelSettingsManager: ModelSettingsManager
 ) : AndroidViewModel(application) {
 
     private val workManager = WorkManager.getInstance(application)
 
-    val uiState: StateFlow<ModelSettingsUiState> = modelSettingsDataStoreManager.modelSettingsFlow
+    val uiState: StateFlow<ModelSettingsUiState> = modelSettingsManager.modelSettingsFlow
         .map { settings ->
             ModelSettingsUiState(
                 huggingFaceToken = settings.huggingFaceToken,
@@ -36,7 +36,7 @@ class LlmManagerViewModel(
     private val _downloadState = MutableStateFlow<DownloadState>(DownloadState.Idle)
     val downloadState: StateFlow<DownloadState> = _downloadState.asStateFlow()
 
-    val isModelDownloaded: StateFlow<Boolean> = modelSettingsDataStoreManager.modelSettingsFlow
+    val isModelDownloaded: StateFlow<Boolean> = modelSettingsManager.modelSettingsFlow
         .map { !it.dmModelFilePath.isNullOrEmpty() && File(it.dmModelFilePath).exists() }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
@@ -44,31 +44,31 @@ class LlmManagerViewModel(
 
     fun onTokenChanged(newToken: String) {
         viewModelScope.launch {
-            modelSettingsDataStoreManager.updateHuggingFaceToken(newToken)
+            modelSettingsManager.updateHuggingFaceToken(newToken)
         }
     }
 
     fun onTemperatureChanged(newTemp: String) {
         viewModelScope.launch {
-            modelSettingsDataStoreManager.updateGemmaTemperature(newTemp)
+            modelSettingsManager.updateGemmaTemperature(newTemp)
         }
     }
 
     fun onTopKChanged(newTopK: String) {
         viewModelScope.launch {
-            modelSettingsDataStoreManager.updateGemmaTopK(newTopK)
+            modelSettingsManager.updateGemmaTopK(newTopK)
         }
     }
 
     fun onTopPChanged(newTopP: String) {
         viewModelScope.launch {
-            modelSettingsDataStoreManager.updateGemmaTopP(newTopP)
+            modelSettingsManager.updateGemmaTopP(newTopP)
         }
     }
 
     fun onMaxLengthChanged(newLength: String) {
         viewModelScope.launch {
-            modelSettingsDataStoreManager.updateGemmaNLen(newLength)
+            modelSettingsManager.updateGemmaNLen(newLength)
         }
     }
 

@@ -20,7 +20,7 @@ private val Context.settingsDataStore: DataStore<ModelSettings> by dataStore(
  *
  * @param context Il contesto dell'applicazione, necessario per accedere al DataStore.
  */
-class ModelSettingsDataStoreManager(private val context: Context) {
+class ModelSettingsManager(private val context: Context) {
 
     val modelSettingsFlow: Flow<ModelSettings> = context.settingsDataStore.data
         .catch { exception ->
