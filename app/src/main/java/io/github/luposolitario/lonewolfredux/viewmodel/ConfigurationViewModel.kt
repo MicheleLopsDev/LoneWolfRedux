@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import io.github.luposolitario.lonewolfredux.data.NarrativeTone
 import io.github.luposolitario.lonewolfredux.datastore.AppSettings
 import io.github.luposolitario.lonewolfredux.datastore.AppSettingsManager
+import io.github.luposolitario.lonewolfredux.datastore.ModelSettingsManager
 import io.github.luposolitario.lonewolfredux.datastore.SaveGameManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -34,9 +35,13 @@ class ConfigurationViewModel(application: Application) : AndroidViewModel(applic
     }
 
     // Espone il tono narrativo attualmente salvato come StateFlow
-    val selectedNarrativeTone: StateFlow<NarrativeTone> = AppSettingsManager.getNarrativeToneFlow(getApplication())
-        .map { toneKey -> NarrativeTone.fromKey(toneKey) }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), NarrativeTone.Neutro)
+    fun getCurrentNarrativeTone(): StateFlow<NarrativeTone> {
+        return flow {
+            emit(ModelSettingsManager.getFirstNarrativeTone(getApplication()))
+        }.map { key ->
+            NarrativeTone.fromKey(key)
+        }.stateIn(viewModelScope, SharingStarted.Lazily, NarrativeTone.Neutro)
+    }
 
     // Espone la lista di tutti i toni disponibili
     val availableTones: List<NarrativeTone> = NarrativeTone.allTones
@@ -47,7 +52,7 @@ class ConfigurationViewModel(application: Application) : AndroidViewModel(applic
     fun onNarrativeToneSelected(tone: NarrativeTone) {
         viewModelScope.launch {
             // Chiamiamo il metodo sull'object passando il contesto
-            AppSettingsManager.setNarrativeTone(getApplication(), tone.key)
+            ModelSettingsManager.updateNarrativeTone(tone.key, getApplication())
         }
     }
 

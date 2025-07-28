@@ -1,37 +1,20 @@
 package io.github.luposolitario.lonewolfredux.ui.screen
 
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Download
-import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Divider
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import io.github.luposolitario.lonewolfredux.data.NarrativeTone
 import io.github.luposolitario.lonewolfredux.viewmodel.DownloadState
 import io.github.luposolitario.lonewolfredux.viewmodel.LlmManagerViewModel
 
@@ -43,7 +26,7 @@ fun LlmManagerScreen(
     val uiState by viewModel.uiState.collectAsState()
     val downloadState by viewModel.downloadState.collectAsState()
     val isModelDownloaded by viewModel.isModelDownloaded.collectAsState()
-    val isTokenPresent = uiState.huggingFaceToken.isNotBlank()
+    val isTokenPresent by viewModel.isTokenPresent.collectAsState()
 
     Scaffold(
         topBar = {
@@ -57,6 +40,57 @@ fun LlmManagerScreen(
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            Text(
+                text = "Configurazione Globale",
+                style = MaterialTheme.typography.titleLarge
+            )
+
+            OutlinedTextField(
+                value = uiState.huggingFaceToken,
+                onValueChange = viewModel::onTokenChanged,
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("Token Hugging Face") },
+                singleLine = true
+            )
+
+            var expanded by remember { mutableStateOf(false) }
+            val tones = NarrativeTone.allTones
+
+            ExposedDropdownMenuBox(
+                expanded = expanded,
+                onExpandedChange = { expanded = !expanded },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                OutlinedTextField(
+                    // --- ECCO LA CORREZIONE ---
+                    // Usiamo ?. e ?: per gestire il caso in cui narrativeTone sia null.
+                    value = uiState.narrativeTone?.displayName ?: "Seleziona un tono...",
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Tono Narrativo") },
+                    trailingIcon = {
+                        ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
+                    },
+                    modifier = Modifier
+                        .menuAnchor()
+                        .fillMaxWidth()
+                )
+
+                ExposedDropdownMenu(
+                    expanded = expanded,
+                    onDismissRequest = { expanded = false }
+                ) {
+                    tones.forEach { tone ->
+                        DropdownMenuItem(
+                            text = { Text(tone.displayName) },
+                            onClick = {
+                                viewModel.onNarrativeToneChanged(tone)
+                                expanded = false
+                            }
+                        )
+                    }
+                }
+            }
 
             if (isTokenPresent) {
                 Divider(modifier = Modifier.padding(vertical = 8.dp))
@@ -79,8 +113,7 @@ fun LlmManagerScreen(
                         )
                     }
 
-                    // Contenuto animato per il pulsante/progresso
-                    AnimatedContent(targetState = if (isModelDownloaded) DownloadState.Completed else downloadState) { state ->
+                    AnimatedContent(targetState = if (isModelDownloaded) DownloadState.Completed else downloadState, label = "DownloadButtonAnimation") { state ->
                         when (state) {
                             is DownloadState.Idle -> {
                                 Button(onClick = { viewModel.startModelDownload() }) {
@@ -92,7 +125,7 @@ fun LlmManagerScreen(
 
                             is DownloadState.Downloading -> {
                                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    CircularProgressIndicator(progress = state.progress / 100f)
+                                    CircularProgressIndicator(progress = { state.progress / 100f })
                                     Text(
                                         "${state.progress}%",
                                         style = MaterialTheme.typography.labelSmall
@@ -116,20 +149,6 @@ fun LlmManagerScreen(
                         }
                     }
                 }
-
-
-                Text(
-                    text = "Configurazione Globale",
-                    style = MaterialTheme.typography.titleLarge
-                )
-
-                OutlinedTextField(
-                    value = uiState.huggingFaceToken,
-                    onValueChange = viewModel::onTokenChanged,
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Token Hugging Face") },
-                    singleLine = true
-                )
 
                 Divider(modifier = Modifier.padding(vertical = 8.dp))
 

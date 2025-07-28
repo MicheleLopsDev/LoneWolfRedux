@@ -62,8 +62,7 @@ class ModelDownloadWorker(private val context: Context, params: WorkerParameters
         val urlString = inputData.getString(KEY_URL) ?: return@coroutineScope Result.failure()
         val destinationPath = inputData.getString(KEY_DESTINATION) ?: return@coroutineScope Result.failure()
 
-        val settingsManager = ModelSettingsManager(context)
-        val accessToken = settingsManager.modelSettingsFlow.first().huggingFaceToken
+        val accessToken = ModelSettingsManager.getHuggingFaceToken(context) ?: return@coroutineScope Result.failure()
 
         if (accessToken.isEmpty()) {
             Log.e("ModelDownloadWorker", "Token di accesso non trovato.")
@@ -128,7 +127,7 @@ class ModelDownloadWorker(private val context: Context, params: WorkerParameters
                 throw IOException("Impossibile rinominare il file temporaneo.")
             }
 
-            settingsManager.updateDmModelFilePath(destinationPath)
+            ModelSettingsManager.updateDmModelFilePath(destinationPath, context)
             Result.success()
         } catch (e: Exception) {
             Log.e("ModelDownloadWorker", "Errore durante il download: ${e.message}", e)

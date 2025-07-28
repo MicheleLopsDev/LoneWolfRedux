@@ -8,9 +8,8 @@ import io.github.luposolitario.lonewolfredux.datastore.ModelSettingsManager
 class LlmManagerViewModelFactory(private val application: Application) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(LlmManagerViewModel::class.java)) {
-            val modelSettingsManager = ModelSettingsManager(application)
             @Suppress("UNCHECKED_CAST")
-            return LlmManagerViewModel(application, modelSettingsManager) as T
+            return LlmManagerViewModel(application) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }
