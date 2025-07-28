@@ -3,7 +3,6 @@ package io.github.luposolitario.lonewolfredux.viewmodel
 import android.app.Application
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.application
 import androidx.lifecycle.viewModelScope
 import com.google.gson.Gson
 import io.github.luposolitario.lonewolfredux.datastore.AppSettings
@@ -11,6 +10,7 @@ import io.github.luposolitario.lonewolfredux.datastore.AppSettingsManager
 import io.github.luposolitario.lonewolfredux.datastore.GameSession
 import io.github.luposolitario.lonewolfredux.datastore.SaveGameManager
 import io.github.luposolitario.lonewolfredux.datastore.SaveSlotInfo
+import io.github.luposolitario.lonewolfredux.engine.GemmaTranslationEngine
 import io.github.luposolitario.lonewolfredux.engine.TranslationEngine
 import io.github.luposolitario.lonewolfredux.service.TtsService
 import kotlinx.coroutines.Dispatchers
@@ -18,25 +18,26 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.onCompletion
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.io.File
 
-class GameViewModel(application: Application) : AndroidViewModel(application) {
+class GameViewModel(
+    application: Application,
+    private val gemmaEngine: GemmaTranslationEngine
+) : AndroidViewModel(application) {
 
     // --- STATO INTERNO DEL VIEWMODEL ---
     private var activeSlotId: Int = 1
-    // Deve essere inizializzato correttamente da `initialize`
     private var currentBookId: Int = -1
 
+    private val translationEngine = TranslationEngine()
 
-    private val translationEngine = TranslationEngine() // Istanzia il motore
-
-    // StateFlow per inviare script alla BookWebView (diverso da quello per la SheetWebView)
     private val _jsToRunInBook = MutableStateFlow<String?>(null)
     val jsToRunInBook: StateFlow<String?> = _jsToRunInBook.asStateFlow()
-
-    // (Il resto delle dichiarazioni StateFlow rimane invariato...)
     private val _bookUrl = MutableStateFlow("about:blank")
     val bookUrl: StateFlow<String> = _bookUrl.asStateFlow()
     private val _sheetUrl = MutableStateFlow("about:blank")
@@ -52,78 +53,100 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     val saveSlots: StateFlow<List<SaveSlotInfo>> = _saveSlots.asStateFlow()
     private val _showSaveLoadDialog = MutableStateFlow(false)
     val showSaveLoadDialog: StateFlow<Boolean> = _showSaveLoadDialog.asStateFlow()
-
     private val _isCurrentBookCompleted = MutableStateFlow(false)
     val isCurrentBookCompleted: StateFlow<Boolean> = _isCurrentBookCompleted.asStateFlow()
-
     private val _targetLanguage = MutableStateFlow("it")
     val targetLanguage: StateFlow<String> = _targetLanguage.asStateFlow()
-
-    // Aggiungi questo StateFlow
     val fontZoomLevel: StateFlow<Int> = AppSettingsManager.getFontZoomLevelFlow(getApplication())
         .stateIn(viewModelScope, SharingStarted.Eagerly, 100)
-
-    // Aggiungiamo un StateFlow per lo zoom temporaneo durante il gesto
     private val _showZoomSlider = MutableStateFlow(false)
     val showZoomSlider: StateFlow<Boolean> = _showZoomSlider.asStateFlow()
-
-    // --- MODIFICA #1: LEGGI TUTTE LE IMPOSTAZIONI E TIENILE PRONTE ---
-    val appSettings: StateFlow<AppSettings> = AppSettingsManager.getTtsSettingsFlow(getApplication())
-        .stateIn(viewModelScope, SharingStarted.Eagerly, AppSettings.getDefaultInstance())
-
-
-
-    // --- NUOVO: Aggiungi l'istanza del TtsService ---
+    val appSettings: StateFlow<AppSettings> =
+        AppSettingsManager.getTtsSettingsFlow(getApplication())
+            .stateIn(viewModelScope, SharingStarted.Eagerly, AppSettings.getDefaultInstance())
     private var ttsService: TtsService? = null
 
-
+    // --- BLOCCO TRADUZIONE AVANZATA ---
+    private var storyContextHtml: String = ""
+    private val _isLoadingTranslation = MutableStateFlow(false)
+    val isLoadingTranslation = _isLoadingTranslation.asStateFlow()
+    private val _translatedContent = MutableStateFlow<String?>(null)
+    val translatedContent = _translatedContent.asStateFlow()
 
     init {
-        // Inizializza il servizio nel costruttore del ViewModel
         ttsService = TtsService(application) {
             Log.d("GameViewModel", "Motore TTS pronto.")
         }
+        viewModelScope.launch {
+            try {
+                gemmaEngine.setupGemma()
+            } catch (e: Exception) {
+                Log.e("GameViewModel", "Setup di Gemma fallito", e)
+            }
+        }
     }
 
+    override fun onCleared() {
+        super.onCleared()
+        ttsService?.shutdown()
+        gemmaEngine.release() // <-- RILASCIO RISORSE GEMMA
+    }
 
-    // --- FUNZIONI DI INIZIALIZZAZIONE E GESTIONE DEL GIOCO ---
+    fun setPreviousStoryContext(html: String) {
+        storyContextHtml = html
+    }
+
+    fun translateCurrentPage(currentHtml: String) {
+        if (currentHtml.isBlank()) return
+
+        viewModelScope.launch {
+            gemmaEngine.translateNarrative(currentHtml, storyContextHtml)
+                .onStart {
+                    _isLoadingTranslation.value = true
+                    _translatedContent.value = null
+                }
+                .onCompletion {
+                    _isLoadingTranslation.value = false
+                }
+                .catch { exception ->
+                    Log.e("GameViewModel", "Errore durante la traduzione con Gemma.", exception)
+                }
+                .collect { translatedHtml ->
+                    _translatedContent.value = translatedHtml
+                }
+        }
+    }
+
+    fun consumeTranslatedContent() {
+        _translatedContent.value = null
+    }
+
+    // --- FUNZIONI ESISTENTI ---
     fun initialize(bookId: Int) {
         if (bookId <= 0) {
-            Log.e("GameViewModel", "ID del libro non valido: $bookId. Impossibile inizializzare.")
+            Log.e("GameViewModel", "ID del libro non valido: $bookId.")
             return
         }
         currentBookId = bookId
-
-        // Aggiorna la logica per usare il nuovo manager
         viewModelScope.launch {
-            _isCurrentBookCompleted.value = AppSettingsManager.isBookCompleted(getApplication(), currentBookId)
+            _isCurrentBookCompleted.value =
+                AppSettingsManager.isBookCompleted(getApplication(), currentBookId)
             AppSettingsManager.getTargetLanguageFlow(getApplication()).collect {
                 _targetLanguage.value = it
             }
         }
-
-        loadGame(1) // Carica lo slot 1 del libro corrente
+        loadGame(1)
     }
 
-    /**
-     * Chiamato dal TranslationInterface quando il JS richiede una traduzione.
-     */
-// Modifica onTranslateRequest
     fun onTranslateRequest(text: String, callbackId: Int) {
         viewModelScope.launch(Dispatchers.IO) {
             val targetLang = _targetLanguage.value
-
-            // Se la lingua target è inglese, non facciamo nulla.
-            // Restituiamo il testo originale al JavaScript.
             if (targetLang == "en" || text.isBlank()) {
                 val escapedText = text.replace("'", "\\'")
                 val script = "window.onTranslationResult('$escapedText', $callbackId);"
                 runJsInBookView(script)
                 return@launch
             }
-
-            // Altrimenti, usiamo il motore di traduzione con la lingua target.
-            // La tua classe TranslationEngine è già pronta per questo.
             val translatedText = translationEngine.translate(text, targetLanguage.value)
             val escapedText = translatedText.replace("'", "\\'")
             val script = "window.onTranslationResult('$escapedText', $callbackId);"
@@ -131,21 +154,13 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    // --- NUOVA FUNZIONE ---
+    // ... tutto il resto del tuo codice è già corretto e può rimanere così
     fun speakText(text: String) {
-        // Per ora, usiamo una "voce" generica. In futuro potremmo passare il personaggio.
         ttsService?.speak(text, appSettings.value)
-    }
-
-    // Assicurati di rilasciare le risorse quando il ViewModel viene distrutto
-    override fun onCleared() {
-        super.onCleared()
-        ttsService?.shutdown()
     }
 
     fun onZoomChange(zoomLevel: Int) {
         viewModelScope.launch {
-            // Salva la preferenza in modo persistente
             AppSettingsManager.setFontZoomLevel(getApplication(), zoomLevel)
         }
     }
@@ -158,67 +173,49 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
         _showZoomSlider.value = false
     }
 
-    /**
-     * Chiamato dal SheetInterface quando il JS della SheetWebView richiede una traduzione.
-     */
     fun onSheetTranslateRequest(text: String, callbackId: Int) {
         viewModelScope.launch(Dispatchers.IO) {
             val targetLang = _targetLanguage.value
-
-            // Se la lingua target è inglese, non facciamo nulla.
-            // Restituiamo il testo originale al JavaScript.
             if (targetLang == "en" || text.isBlank()) {
                 val escapedText = text.replace("'", "\\'")
                 val script = "window.onTranslationResult('$escapedText', $callbackId);"
-                runJsInSheetView(script) // Invia lo script alla SheetWebView
+                runJsInSheetView(script)
                 return@launch
             }
-
-            // Altrimenti, usiamo il motore di traduzione con la lingua target.
-            // La tua classe TranslationEngine è già pronta per questo.
             val translatedText = translationEngine.translate(text, targetLanguage.value)
             val escapedText = translatedText.replace("'", "\\'")
             val script = "window.onTranslationResult('$escapedText', $callbackId);"
-            runJsInSheetView(script) // Invia lo script alla SheetWebView
+            runJsInSheetView(script)
         }
     }
 
-    /**
-     * Funzione per inviare uno script alla BookWebView.
-     */
     fun runJsInBookView(script: String) {
         _jsToRunInBook.value = script
     }
 
-    /**
-     * Resetta lo script dopo l'esecuzione per evitare che venga rieseguito.
-     */
     fun onBookJsExecuted() {
         _jsToRunInBook.value = null
     }
-
 
     fun toggleBookCompletion() {
         if (currentBookId > 0) {
             viewModelScope.launch {
                 AppSettingsManager.toggleBookCompletion(getApplication(), currentBookId)
-                _isCurrentBookCompleted.value = AppSettingsManager.isBookCompleted(getApplication(), currentBookId)
+                _isCurrentBookCompleted.value =
+                    AppSettingsManager.isBookCompleted(getApplication(), currentBookId)
             }
         }
     }
 
-
     fun loadGame(slotId: Int) {
         viewModelScope.launch {
             activeSlotId = slotId
-            // Passa il bookId corrente al SaveGameManager
             val session = SaveGameManager.getSession(getApplication(), currentBookId, activeSlotId)
-
             _navigationHistory.value = session.navigationHistoryList
             _bookmarkUrl.value = session.bookmarkedParagraphUrl.ifEmpty { null }
-
             val urlToLoad = if (session.navigationHistoryList.isEmpty()) {
-                val bookFile = File(getApplication<Application>().filesDir, "books/$currentBookId/title.htm")
+                val bookFile =
+                    File(getApplication<Application>().filesDir, "books/$currentBookId/title.htm")
                 "file://${bookFile.absolutePath}"
             } else {
                 session.navigationHistoryList.last()
@@ -227,7 +224,6 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
             if (session.navigationHistoryList.isEmpty()) {
                 addUrlToHistory(urlToLoad)
             }
-
             _sheetUrl.value = when (currentBookId) {
                 in 1..5 -> "file:///android_asset/sheets/char_sheet_301.htm"
                 in 6..12 -> "file:///android_asset/sheets/char_sheet_302.htm"
@@ -240,20 +236,28 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun onSheetDataExtracted(jsonData: String) {
-        Log.d("GameViewModel", "Dati estratti per il salvataggio nel libro $currentBookId, slot $activeSlotId")
+        Log.d(
+            "GameViewModel",
+            "Dati estratti per il salvataggio nel libro $currentBookId, slot $activeSlotId"
+        )
         viewModelScope.launch {
-            val dataMap: Map<String, String> = Gson().fromJson(jsonData, object : com.google.gson.reflect.TypeToken<Map<String, String>>() {}.type)
+            val dataMap: Map<String, String> = Gson().fromJson(
+                jsonData,
+                object : com.google.gson.reflect.TypeToken<Map<String, String>>() {}.type
+            )
             val sessionToSave = GameSession.newBuilder()
                 .putAllSheetData(dataMap)
                 .clearNavigationHistory()
                 .addAllNavigationHistory(_navigationHistory.value)
                 .setBookmarkedParagraphUrl(_bookmarkUrl.value ?: "")
                 .build()
-
-            // Passa il bookId corrente al SaveGameManager
-            SaveGameManager.updateSession(getApplication(), currentBookId, activeSlotId, sessionToSave)
+            SaveGameManager.updateSession(
+                getApplication(),
+                currentBookId,
+                activeSlotId,
+                sessionToSave
+            )
             Log.d("GameViewModel", "Salvataggio completato")
-
             refreshSaveSlots()
             closeSaveLoadDialog()
         }
@@ -261,8 +265,11 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
 
     fun loadSheetDataIntoWebView(callbackId: String) {
         viewModelScope.launch {
-            // Passa il bookId corrente al SaveGameManager
-            val dataMap = SaveGameManager.getSession(getApplication(), currentBookId, activeSlotId).sheetDataMap
+            val dataMap = SaveGameManager.getSession(
+                getApplication(),
+                currentBookId,
+                activeSlotId
+            ).sheetDataMap
             val jsonData = Gson().toJson(dataMap)
             val escapedJsonData = jsonData.replace("'", "\\'")
             val script = "window.nativeCallback('$callbackId', '$escapedJsonData');"
@@ -271,11 +278,9 @@ class GameViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private suspend fun refreshSaveSlots() {
-        // Passa il bookId corrente al SaveGameManager
         _saveSlots.value = SaveGameManager.getSaveSlotsInfo(getApplication(), currentBookId)
     }
 
-    // (Il resto del file: saveGame, open/close dialog, funzioni di navigazione, ecc. rimane identico)
     fun saveGame(slotId: Int) {
         viewModelScope.launch {
             activeSlotId = slotId
