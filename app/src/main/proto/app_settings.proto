@@ -23,4 +23,6 @@ message AppSettings {
   // string tts_voice_female = 13; <-- RIMUOVI
   string tts_narrator_voice = 12; // <-- AGGIUNGI QUEST
   // --- AGGIUNGI QUESTA RIGA ---
+  // --- AGGIUNGI QUESTA RIGA ---
+  bool advanced_translation_enabled = 13; // Usa un numero di campo non utilizzato
 }

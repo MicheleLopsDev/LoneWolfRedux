@@ -12,15 +12,21 @@ import io.github.luposolitario.lonewolfredux.bridge.SheetInterface
 import io.github.luposolitario.lonewolfredux.bridge.TranslationInterface
 import io.github.luposolitario.lonewolfredux.viewmodel.GameViewModel
 import io.github.luposolitario.lonewolfredux.bridge.TtsInterface
-/**
- * Legge il contenuto di un file dalla cartella assets e lo restituisce come stringa.
- */
+
 private fun getJsFromAssets(context: Context, fileName: String): String {
     return try {
         context.assets.open(fileName).bufferedReader().use { it.readText() }
     } catch (e: Exception) {
         Log.e("GameWebView", "Errore durante la lettura del file JS dagli assets: $fileName", e)
-        "" // Restituisce una stringa vuota in caso di errore
+        ""
+    }
+}
+
+class WebViewTapInterface(private val onDoubleTap: () -> Unit) {
+    @JavascriptInterface
+    @Suppress("unused")
+    fun onDoubleTapDetected() {
+        onDoubleTap()
     }
 }
 
@@ -31,9 +37,10 @@ fun BookWebView(
     viewModel: GameViewModel,
     jsToRun: String?,
     onJsExecuted: () -> Unit,
-    onNewUrl: (String) -> Unit,
     textZoom: Int,
-    onWebViewReady: (WebView) -> Unit
+    onWebViewReady: (WebView) -> Unit,
+    // --- MODIFICA CHIAVE: Accettiamo SOLO il client dall'esterno ---
+    webViewClient: WebViewClient
 ) {
     AndroidView(
         modifier = modifier,
@@ -42,42 +49,18 @@ fun BookWebView(
                 settings.javaScriptEnabled = true
                 settings.allowFileAccess = true
                 settings.allowContentAccess = true
-                settings.textZoom = textZoom // <-- APPLICA LO ZOOM
-                // Aggiungiamo le nostre interfacce
+                settings.textZoom = textZoom
                 addJavascriptInterface(TranslationInterface(viewModel), "Translator")
                 addJavascriptInterface(WebViewTapInterface { viewModel.openZoomSlider() }, "AndroidTap")
-                addJavascriptInterface(TtsInterface(viewModel), "TtsHandler") // <-- NUOVA INTERFACCIA
+                addJavascriptInterface(TtsInterface(viewModel), "TtsHandler")
 
-                webViewClient = object : WebViewClient() {
-                    override fun shouldOverrideUrlLoading(view: WebView, url: String): Boolean {
-                        onNewUrl(url)
-                        return true
-                    }
+                // --- USA IL CLIENT FORNITO. NESSUN ALTRO CLIENT VIENE CREATO ---
+                setWebViewClient(webViewClient)
 
-                    override fun onPageFinished(view: WebView?, url: String?) {
-                        super.onPageFinished(view, url)
-                        // Iniettiamo entrambi gli script di override
-                        val translatorScript = getJsFromAssets(context, "translator.js")
-                        view?.evaluateJavascript(translatorScript, null)
-
-                        val ttsScript = getJsFromAssets(context, "tts_handler.js") // <-- NUOVO SCRIPT
-                        view?.evaluateJavascript(ttsScript, null)
-
-                        // --- NUOVO: Inietta lo script per estrarre il testo ---
-                        val getTextScript = getJsFromAssets(context, "get_text.js")
-                        view?.evaluateJavascript(getTextScript, null)
-
-                        val doubleTapScript = getJsFromAssets(context, "double_tap_detector.js")
-                        if (doubleTapScript.isNotEmpty()) {
-                            view?.evaluateJavascript(doubleTapScript, null)
-                        }
-                    }
-                }
                 onWebViewReady(this)
             }
         },
         update = { webView ->
-            // La logica di update rimane la stessa, ma dobbiamo applicare lo zoom
             if (webView.settings.textZoom != textZoom) {
                 webView.settings.textZoom = textZoom
             }
@@ -92,20 +75,6 @@ fun BookWebView(
     )
 }
 
-
-class WebViewTapInterface(private val onDoubleTap: () -> Unit) {
-    @JavascriptInterface
-    @Suppress("unused")
-    fun onDoubleTapDetected() {
-        // Esegui sul thread principale di Compose
-        // Oltre a questo, potresti voler usare un Handler o un CoroutineScope
-        // per assicurarti che la chiamata avvenga sul thread UI.
-        // Per semplicità, inizialmente chiamiamo direttamente.
-        // Se riscontri problemi, potresti dover usare un Handler.
-        onDoubleTap()
-    }
-}
-
 @Composable
 fun SheetWebView(
     modifier: Modifier,
@@ -113,7 +82,7 @@ fun SheetWebView(
     viewModel: GameViewModel,
     jsToRun: String?,
     onJsExecuted: () -> Unit,
-    textZoom: Int // <-- NUOVO
+    textZoom: Int
 ) {
     AndroidView(
         modifier = modifier,
@@ -121,14 +90,13 @@ fun SheetWebView(
             WebView(context).apply {
                 settings.javaScriptEnabled = true
                 settings.domStorageEnabled = true
-                settings.textZoom = textZoom // <-- APPLICA LO ZOOM
+                settings.textZoom = textZoom
 
                 addJavascriptInterface(SheetInterface(viewModel), "Android")
                 addJavascriptInterface(WebViewTapInterface { viewModel.openZoomSlider() }, "AndroidTap")
                 webViewClient = object : WebViewClient() {
                     override fun onPageFinished(view: WebView?, url: String?) {
                         super.onPageFinished(view, url)
-                        // Carica ed esegue lo script di override dal file assets.
                         val overrideScript = getJsFromAssets(context, "override.js")
                         if (overrideScript.isNotEmpty()) {
                             view?.evaluateJavascript(overrideScript, null)

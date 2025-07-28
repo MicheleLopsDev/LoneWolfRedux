@@ -13,9 +13,7 @@ import io.github.luposolitario.lonewolfredux.viewmodel.GameViewModel
 
 class GameActivity : ComponentActivity() {
 
-    // --- MODIFICA QUESTA RIGA ---
     private val viewModel: GameViewModel by viewModels {
-        // Creiamo una Factory "al volo" qui dentro
         object : ViewModelProvider.Factory {
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
                 val gemmaEngine = GemmaTranslationEngine(application)
@@ -24,7 +22,6 @@ class GameActivity : ComponentActivity() {
             }
         }
     }
-    // --- FINE MODIFICA ---
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -39,6 +36,8 @@ class GameActivity : ComponentActivity() {
 
         setContent {
             LoneWolfReduxTheme {
+                // La GameActivity ora ha solo il compito di ospitare lo schermo.
+                // Tutta la logica complessa è stata spostata dentro GameScreen.
                 GameScreen(viewModel = viewModel) {
                     finish()
                 }

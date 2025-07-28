@@ -91,17 +91,6 @@ class ConfigurationViewModel(application: Application) : AndroidViewModel(applic
         _showResetConfirmationDialog.value = false
     }
 
-
-    val isAdvancedTranslationEnabled: StateFlow<Boolean> = flow {
-        emit(AppSettingsManager.isAdvancedTranslationEnabled(getApplication()))
-    }.stateIn(viewModelScope, SharingStarted.Lazily, false)
-
-    fun setUseAdvancedTranslation(enabled: Boolean) {
-        viewModelScope.launch {
-            AppSettingsManager.setUseAdvancedTranslation(getApplication(), enabled)
-        }
-    }
-
     // Esponi l'intero oggetto delle impostazioni
     val appSettings: StateFlow<AppSettings> = AppSettingsManager.getTtsSettingsFlow(getApplication())
         .stateIn(viewModelScope, SharingStarted.Lazily, AppSettings.getDefaultInstance())

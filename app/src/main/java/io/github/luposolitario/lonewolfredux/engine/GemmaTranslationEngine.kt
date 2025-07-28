@@ -109,7 +109,8 @@ class GemmaTranslationEngine(private val context: Context) {
             NarrativeTone.Neutro -> "Traduci il seguente testo in italiano cercando di mantenere la traduzione più fedele possibile all'opera, evitando di cambiare o aggiungere cose."
             else -> "Traduci il seguente testo in italiano adottando uno stile narrativo '${narrativeTone.displayName}'."
         }
-        return """
+
+        val finalPrompt = """
         Sei un traduttore esperto di librogame della serie Lupo Solitario. Mantieni la massima coerenza con il contesto precedente.
         $toneInstruction
 
@@ -121,6 +122,15 @@ class GemmaTranslationEngine(private val context: Context) {
         ---
         TRADUZIONE:
         """.trimIndent()
+
+
+        // --- AGGIUNGI LOG ---
+        Log.d(tag, "--- PROMPT FINALE PER GEMMA ---")
+        Log.d(tag, finalPrompt)
+        Log.d(tag, "---------------------------------")
+
+        return finalPrompt
+
     }
 
     fun release() {

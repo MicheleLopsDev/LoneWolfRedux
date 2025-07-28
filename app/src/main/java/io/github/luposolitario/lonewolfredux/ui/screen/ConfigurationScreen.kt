@@ -47,7 +47,6 @@ sealed interface TtsUiState {
 fun ConfigurationScreen(viewModel: ConfigurationViewModel) {
 
     val showDialog by viewModel.showResetConfirmationDialog.collectAsState()
-    val useAdvancedTranslation by viewModel.isAdvancedTranslationEnabled.collectAsState()
     val targetLanguage by viewModel.targetLanguage.collectAsState()
     val languageOptions = viewModel.availableLanguages
     val appSettings by viewModel.appSettings.collectAsState()
@@ -172,33 +171,6 @@ fun ConfigurationScreen(viewModel: ConfigurationViewModel) {
                     )
                 }
             }
-
-            Spacer(modifier = Modifier.height(16.dp))
-            Text("Motore di Traduzione", style = MaterialTheme.typography.titleLarge)
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // --- INIZIO BLOCCO NUOVO ---
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("Traduzione Avanzata (Gemma)", style = MaterialTheme.typography.bodyLarge)
-                    Text(
-                        "Usa il modello IA locale per una traduzione di qualità superiore. Più lento e consuma più batteria. Richiede il download del modello IA.",
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                }
-                Spacer(modifier = Modifier.width(16.dp))
-                Switch(
-                    checked = useAdvancedTranslation,
-                    onCheckedChange = { viewModel.setUseAdvancedTranslation(it) },
-                    // Per ora lo disabilitiamo, come da piano, finché non implementeremo il motore Gemma
-                    enabled = false
-                )
-            }
-            // --- FINE BLOCCO NUOVO ---
 
             Spacer(modifier = Modifier.height(16.dp))
             Text("Lingua di Traduzione", style = MaterialTheme.typography.titleLarge)

@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.dataStore
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
@@ -51,16 +52,6 @@ object AppSettingsManager {
         }
     }
 
-    suspend fun setUseAdvancedTranslation(context: Context, useAdvanced: Boolean) {
-        context.appSettingsDataStore.updateData { settings ->
-            settings.toBuilder().setUseAdvancedTranslation(useAdvanced).build()
-        }
-    }
-
-    suspend fun isAdvancedTranslationEnabled(context: Context): Boolean {
-        return context.appSettingsDataStore.data.first().useAdvancedTranslation
-    }
-
     suspend fun setTargetLanguage(context: Context, languageCode: String) {
         context.appSettingsDataStore.updateData { settings ->
             settings.toBuilder().setTargetLanguage(languageCode).build()
@@ -94,7 +85,6 @@ object AppSettingsManager {
         // Espone l'intero oggetto AppSettings per osservare tutte le modifiche
         return context.appSettingsDataStore.data
     }
-
 
 // --- FINE BLOCCO NUOVO ---
 

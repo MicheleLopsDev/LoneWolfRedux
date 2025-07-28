@@ -317,7 +317,7 @@ class GameViewModel(
         addUrlToHistory(url)
     }
 
-    private fun addUrlToHistory(url: String) {
+    fun addUrlToHistory(url: String) {
         if (_navigationHistory.value.lastOrNull() != url) {
             _navigationHistory.value = _navigationHistory.value + url
         }

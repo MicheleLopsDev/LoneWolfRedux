@@ -1,13 +1,15 @@
 package io.github.luposolitario.lonewolfredux.ui.screen
 
+import android.content.Context
+import android.util.Log
+import android.webkit.JavascriptInterface
+import android.webkit.WebResourceRequest
 import android.webkit.WebView
-import androidx.compose.animation.AnimatedVisibility // Ancora necessaria se vuoi altre animazioni, ma non per l'indicatore di zoom
-import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectTapGestures // Importa questo!
+import android.webkit.WebViewClient
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Book
@@ -18,38 +20,240 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.filled.TextFields
+import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Star
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.LocalContentColor
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Slider
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.luposolitario.lonewolfredux.ui.composables.BookWebView
 import io.github.luposolitario.lonewolfredux.ui.composables.SaveLoadDialog
 import io.github.luposolitario.lonewolfredux.ui.composables.SheetWebView
 import io.github.luposolitario.lonewolfredux.viewmodel.GameViewModel
-import androidx.compose.material.icons.filled.VolumeUp
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 
+// Funzione helper per caricare lo script
+private fun getJsFromAssets(context: Context, fileName: String): String {
+    return try {
+        context.assets.open(fileName).bufferedReader().use { it.readText() }
+    } catch (e: Exception) {
+        Log.e("GameScreen", "Errore durante la lettura del file JS: $fileName", e)
+        ""
+    }
+}
+
+// Interfaccia JS (invariata)
+private class GemmaJsInterface(private val viewModel: GameViewModel) {
+    @JavascriptInterface
+    fun setContext(html: String) {
+        Log.d("GemmaJsInterface", "Contesto ricevuto (lunghezza: ${html.length}). Primi 50 caratteri: ${html.take(50)}")
+        viewModel.setPreviousStoryContext(html)
+    }
+
+    @JavascriptInterface
+    fun startTranslation(html: String) {
+        Log.d("GemmaJsInterface", "Avvio traduzione per HTML (lunghezza: ${html.length}). Primi 50 caratteri: ${html.take(50)}")
+        viewModel.translateCurrentPage(html)
+    }
+}
+// Funzione di controllo URL (invariata)
+private fun isStorySection(url: String): Boolean {
+    return url.contains(Regex("sect\\d+\\.htm$")) || url.endsWith("tssf.htm") || url.endsWith("title.htm")
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun GameScreen(viewModel: GameViewModel,
+               onClose: () -> Unit) {
+
+    val isShowingSheet by viewModel.isShowingSheet.collectAsStateWithLifecycle()
+    val bookUrl by viewModel.bookUrl.collectAsStateWithLifecycle()
+    val sheetUrl by viewModel.sheetUrl.collectAsStateWithLifecycle()
+    val jsToRun by viewModel.jsToRunInSheet.collectAsStateWithLifecycle()
+    val bookmarkUrl by viewModel.bookmarkUrl.collectAsStateWithLifecycle()
+    val isBookCompleted by viewModel.isCurrentBookCompleted.collectAsStateWithLifecycle()
+    val showSaveLoadDialog by viewModel.showSaveLoadDialog.collectAsStateWithLifecycle()
+    val saveSlots by viewModel.saveSlots.collectAsStateWithLifecycle()
+    val jsToRunInBook by viewModel.jsToRunInBook.collectAsStateWithLifecycle()
+    val fontZoom by viewModel.fontZoomLevel.collectAsStateWithLifecycle()
+    val showZoomSlider by viewModel.showZoomSlider.collectAsStateWithLifecycle()
+    val translatedContent by viewModel.translatedContent.collectAsStateWithLifecycle()
+    var webViewRef by remember { mutableStateOf<WebView?>(null) }
+    val context = LocalContext.current
+
+    val unifiedWebViewClient = remember() {
+        object : WebViewClient() {
+            override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
+                val url = request?.url?.toString() ?: return true
+                viewModel.onNewUrl(url)
+
+                if (isStorySection(url)) {
+                    // Eseguiamo uno script che contiene la logica + la chiamata all'interfaccia
+                    val script = """
+                        (function() {
+                            ${getJsFromAssets(context, "gemma_translator.js")}
+                            const html = extractStoryHtml();
+                            if (window.GemmaTranslator) {
+                                window.GemmaTranslator.setContext(html);
+                            }
+                        })();
+                    """.trimIndent()
+                    view?.evaluateJavascript(script, null)
+                }
+                return true
+            }
+
+            override fun onPageFinished(view: WebView?, url: String?) {
+                super.onPageFinished(view, url)
+                val currentUrl = url ?: return
+                viewModel.addUrlToHistory(currentUrl)
+
+                if (isStorySection(currentUrl)) {
+                    // --- CORREZIONE DEFINITIVA ---
+                    // Combiniamo l'iniezione e la chiamata in un unico blocco atomico.
+                    val script = """
+                        (function() {
+                            ${getJsFromAssets(context, "gemma_translator.js")}
+                            const html = extractStoryHtml();
+                            if (window.GemmaTranslator) {
+                                window.GemmaTranslator.startTranslation(html);
+                            }
+                        })();
+                    """.trimIndent()
+                    view?.evaluateJavascript(script, null)
+                }
+            }
+        }
+    }
+
+    LaunchedEffect(translatedContent) {
+        if (translatedContent != null) {
+            val escapedHtml = translatedContent
+                ?.replace("\\", "\\\\")
+                ?.replace("'", "\\'")
+                ?.replace("\n", "\\n")
+            webViewRef?.evaluateJavascript("javascript:replaceStoryHtml('$escapedHtml');", null)
+            viewModel.consumeTranslatedContent()
+        }
+    }
+
+    if (showZoomSlider) {
+        ZoomSliderPanel(
+            currentZoom = fontZoom,
+            onZoomChange = { viewModel.onZoomChange(it) },
+            onDismiss = { viewModel.closeZoomSlider() }
+        )
+    }
+
+    if (showSaveLoadDialog) {
+        SaveLoadDialog(
+            slots = saveSlots,
+            onDismiss = { viewModel.closeSaveLoadDialog() },
+            onSave = { slotId -> viewModel.saveGame(slotId) },
+            onLoad = { slotId -> viewModel.loadGame(slotId) },
+        )
+    }
+    Scaffold(topBar = { TopAppBar(title = { Text(if (isShowingSheet) "Scheda Azione" else "") }, navigationIcon = {
+        IconButton(onClick = onClose) { Icon(Icons.Default.Close, "Chiudi") }
+    },
+        actions = {
+            if (isShowingSheet) {
+                IconButton(onClick = { viewModel.openSaveLoadDialog() }) {
+                    Icon(Icons.Default.Save, contentDescription = "Salva o Carica")
+                }
+            } else {
+                IconButton(onClick = { viewModel.toggleBookCompletion() }) {
+                    Icon(
+                        imageVector = if (isBookCompleted) Icons.Filled.CheckCircle else Icons.Outlined.CheckCircle,
+                        contentDescription = "Segna come completato",
+                        tint = if (isBookCompleted) Color(0xFF4CAF50) else LocalContentColor.current
+                    )
+                }
+                IconButton(onClick = {
+                    webViewRef?.evaluateJavascript("getVisibleText()") { fullText ->
+                        val cleanText = fullText.removeSurrounding("\"")
+                        if (cleanText.isNotBlank()) {
+                            viewModel.speakText(cleanText)
+                        }
+                    }
+                }) {
+                    Icon(
+                        imageVector = Icons.Default.VolumeUp,
+                        contentDescription = "Leggi pagina intera"
+                    )
+                }
+                IconButton(onClick = { viewModel.onHomeClicked() }) {
+                    Icon(Icons.Default.Home, "Home")
+                }
+                IconButton(onClick = { viewModel.onBackClicked() }) {
+                    Icon(Icons.Default.ArrowBack, "Indietro")
+                }
+                IconButton(onClick = { viewModel.onBookmarkClicked() }) {
+                    val isBookmarked = bookmarkUrl != null
+                    Icon(
+                        if (isBookmarked) Icons.Filled.Star else Icons.Outlined.Star,
+                        "Segnalibro",
+                        tint = if (isBookmarked) Color(0xFFFFD700) else LocalContentColor.current
+                    )
+                }
+                IconButton(
+                    onClick = { viewModel.onGoToBookmarkClicked() },
+                    enabled = bookmarkUrl != null
+                ) {
+                    Icon(Icons.Default.Bookmark, "Vai al Segnalibro")
+                }
+            }
+            IconButton(onClick = { viewModel.toggleSheetVisibility() }) {
+                Icon(
+                    imageVector = if (isShowingSheet) Icons.Default.Book else Icons.Default.Person,
+                    contentDescription = if (isShowingSheet) "Mostra Libro" else "Mostra Scheda Azione"
+                )
+            }
+        }
+    )
+    }) { padding ->
+        Box(
+            modifier = Modifier
+                .padding(padding)
+                .fillMaxSize()
+                .pointerInput(Unit) {
+                    detectTapGestures(
+                        onDoubleTap = {
+                            viewModel.openZoomSlider()
+                        }
+                    )
+                }
+        ) {
+            if (isShowingSheet) {
+                SheetWebView(
+                    modifier = Modifier.fillMaxSize(),
+                    url = sheetUrl,
+                    viewModel = viewModel,
+                    jsToRun = jsToRun,
+                    onJsExecuted = { viewModel.onJsExecuted() },
+                    textZoom = fontZoom
+                )
+            } else {
+                BookWebView(
+                    modifier = Modifier.fillMaxSize(),
+                    url = bookUrl,
+                    viewModel = viewModel,
+                    jsToRun = jsToRunInBook,
+                    onJsExecuted = { viewModel.onBookJsExecuted() },
+                    textZoom = fontZoom,
+                    onWebViewReady = { webView ->
+                        webViewRef = webView
+                        webView.addJavascriptInterface(GemmaJsInterface(viewModel), "GemmaTranslator")
+                    },
+                    webViewClient = unifiedWebViewClient
+                )
+            }
+        }
+    }
+}
 @Composable
 fun ZoomSliderPanel(
     currentZoom: Int,
@@ -73,141 +277,4 @@ fun ZoomSliderPanel(
             }
         }
     )
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun GameScreen(viewModel: GameViewModel, onClose: () -> Unit) {
-
-    val isShowingSheet by viewModel.isShowingSheet.collectAsState()
-    val bookUrl by viewModel.bookUrl.collectAsState()
-    val sheetUrl by viewModel.sheetUrl.collectAsState()
-    val jsToRun by viewModel.jsToRunInSheet.collectAsState()
-    val bookmarkUrl by viewModel.bookmarkUrl.collectAsState()
-    val isBookCompleted by viewModel.isCurrentBookCompleted.collectAsState()
-    val showSaveLoadDialog by viewModel.showSaveLoadDialog.collectAsState()
-    val saveSlots by viewModel.saveSlots.collectAsState()
-    val jsToRunInBook by viewModel.jsToRunInBook.collectAsState()
-    val fontZoom by viewModel.fontZoomLevel.collectAsState()
-    val showZoomSlider by viewModel.showZoomSlider.collectAsState()
-    var webViewRef by remember { mutableStateOf<WebView?>(null) } // Questa reference è cruciale
-
-    if (showZoomSlider) {
-        ZoomSliderPanel(
-            currentZoom = fontZoom,
-            onZoomChange = { viewModel.onZoomChange(it) },
-            onDismiss = { viewModel.closeZoomSlider() }
-        )
-    }
-
-    if (showSaveLoadDialog) {
-        SaveLoadDialog(
-            slots = saveSlots,
-            onDismiss = { viewModel.closeSaveLoadDialog() },
-            onSave = { slotId -> viewModel.saveGame(slotId) },
-            onLoad = { slotId -> viewModel.loadGame(slotId) },
-        )
-    }
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(if (isShowingSheet) "Scheda Azione" else "") },
-                navigationIcon = {
-                    IconButton(onClick = onClose) { Icon(Icons.Default.Close, "Chiudi") }
-                },
-                actions = {
-                    if (isShowingSheet) {
-                        IconButton(onClick = { viewModel.openSaveLoadDialog() }) {
-                            Icon(Icons.Default.Save, contentDescription = "Salva o Carica")
-                        }
-                    } else {
-                        IconButton(onClick = { viewModel.toggleBookCompletion() }) {
-                            Icon(
-                                imageVector = if (isBookCompleted) Icons.Filled.CheckCircle else Icons.Outlined.CheckCircle,
-                                contentDescription = "Segna come completato",
-                                tint = if (isBookCompleted) Color(0xFF4CAF50) else LocalContentColor.current
-                            )
-                        }
-                        IconButton(onClick = {
-                            webViewRef?.evaluateJavascript("getVisibleText()") { fullText ->
-                                val cleanText = fullText.removeSurrounding("\"")
-                                if (cleanText.isNotBlank()) {
-                                    viewModel.speakText(cleanText)
-                                }
-                            }
-                        }) {
-                            Icon(
-                                imageVector = Icons.Default.VolumeUp,
-                                contentDescription = "Leggi pagina intera"
-                            )
-                        }
-                        IconButton(onClick = { viewModel.onHomeClicked() }) {
-                            Icon(Icons.Default.Home, "Home")
-                        }
-                        IconButton(onClick = { viewModel.onBackClicked() }) {
-                            Icon(Icons.Default.ArrowBack, "Indietro")
-                        }
-                        IconButton(onClick = { viewModel.onBookmarkClicked() }) {
-                            val isBookmarked = bookmarkUrl != null
-                            Icon(
-                                if (isBookmarked) Icons.Filled.Star else Icons.Outlined.Star,
-                                "Segnalibro",
-                                tint = if (isBookmarked) Color(0xFFFFD700) else LocalContentColor.current
-                            )
-                        }
-                        IconButton(
-                            onClick = { viewModel.onGoToBookmarkClicked() },
-                            enabled = bookmarkUrl != null
-                        ) {
-                            Icon(Icons.Default.Bookmark, "Vai al Segnalibro")
-                        }
-                    }
-                    IconButton(onClick = { viewModel.toggleSheetVisibility() }) {
-                        Icon(
-                            imageVector = if (isShowingSheet) Icons.Default.Book else Icons.Default.Person,
-                            contentDescription = if (isShowingSheet) "Mostra Libro" else "Mostra Scheda Azione"
-                        )
-                    }
-                }
-            )
-        }
-    ) { padding ->
-        Box(
-            modifier = Modifier
-                .padding(padding)
-                .fillMaxSize()
-                // Rimosso .pointerInput per i gesti di zoom
-                .pointerInput(Unit) { // Nuovo blocco per il doppio tap
-                    detectTapGestures(
-                        onDoubleTap = {
-                            viewModel.openZoomSlider() // Apri lo slider con doppio tap
-                        }
-                    )
-                }
-        ) {
-            if (isShowingSheet) {
-                SheetWebView(
-                    modifier = Modifier.fillMaxSize(),
-                    url = sheetUrl,
-                    viewModel = viewModel,
-                    jsToRun = jsToRun,
-                    onJsExecuted = { viewModel.onJsExecuted() },
-                    textZoom = fontZoom
-                )
-            } else {
-                BookWebView(
-                    modifier = Modifier.fillMaxSize(),
-                    url = bookUrl,
-                    viewModel = viewModel,
-                    jsToRun = jsToRunInBook,
-                    onJsExecuted = { viewModel.onBookJsExecuted() },
-                    onNewUrl = { viewModel.onNewUrl(it) },
-                    textZoom = fontZoom,
-                    onWebViewReady = { webView -> webViewRef = webView }
-                )
-            }
-
-            // Rimosso l'indicatore di zoom gestuale
-        }
-    }
 }

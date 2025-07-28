@@ -1,41 +1,30 @@
 /**
  * gemma_translator.js
- *
- * Script specializzato per la traduzione narrativa con Gemma.
- * Gestisce l'estrazione e la sostituzione di interi blocchi HTML
- * per le sezioni di storia del librogame.
  */
+alert("gemma_translator.js CARICATO!");
+// LOG DI DEBUG: Se vedi questo nel Logcat (sotto il tag 'chromium'), lo script è stato caricato.
+console.log("GemmaTranslator LOG: Script gemma_translator.js caricato ed eseguito.");
 
 const STORY_CONTAINER_SELECTOR = 'div.numbered';
 
-/**
- * Estrae l'intero contenuto HTML del contenitore della storia.
- * Questo preserva tutti i tag, inclusi i link delle scelte.
- *
- * @returns {string} L'innerHTML del contenitore della storia, o una stringa vuota se non trovato.
- */
 function extractStoryHtml() {
     const storyContainer = document.querySelector(STORY_CONTAINER_SELECTOR);
     if (storyContainer) {
-        console.log("GemmaTranslator: Contenitore storia trovato. Estrazione HTML in corso...");
-        return storyContainer.innerHTML;
+        // Rimuoviamo gli script interni per sicurezza prima di inviare l'HTML
+        const cleanHtml = storyContainer.cloneNode(true);
+        Array.from(cleanHtml.querySelectorAll('script')).forEach(script => script.remove());
+        return cleanHtml.innerHTML;
     } else {
-        console.warn("GemmaTranslator: Contenitore storia '" + STORY_CONTAINER_SELECTOR + "' non trovato nella pagina.");
+        console.warn("GemmaTranslator: Contenitore storia '" + STORY_CONTAINER_SELECTOR + "' non trovato.");
         return "";
     }
 }
 
-/**
- * Sostituisce il contenuto del contenitore della storia con l'HTML tradotto.
- *
- * @param {string} translatedHtml La stringa HTML tradotta ricevuta da Kotlin.
- */
 function replaceStoryHtml(translatedHtml) {
     const storyContainer = document.querySelector(STORY_CONTAINER_SELECTOR);
     if (storyContainer) {
-        console.log("GemmaTranslator: Contenitore storia trovato. Inserimento HTML tradotto...");
         storyContainer.innerHTML = translatedHtml;
     } else {
-        console.error("GemmaTranslator: Impossibile trovare il contenitore '" + STORY_CONTAINER_SELECTOR + "' per inserire la traduzione.");
+        console.error("GemmaTranslator: Contenitore '" + STORY_CONTAINER_SELECTOR + "' non trovato per inserire la traduzione.");
     }
 }
