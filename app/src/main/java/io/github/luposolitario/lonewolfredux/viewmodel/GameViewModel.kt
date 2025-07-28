@@ -86,35 +86,39 @@ class GameViewModel(
         }
     }
 
+    fun translateParagraphs(paragraphs: List<Pair<String, String>>) {
+        // Manteniamo il primo paragrafo come contesto per i successivi
+        var paragraphContext = ""
+
+        viewModelScope.launch {
+            _isLoadingTranslation.value = true
+            for (paragraph in paragraphs) {
+                val paragraphId = paragraph.first
+                val paragraphHtml = paragraph.second
+
+                // Usiamo il motore Gemma per tradurre il paragrafo corrente
+                // dandogli il precedente come contesto.
+                gemmaEngine.translateNarrative(paragraphHtml, paragraphContext)
+                    .catch { exception ->
+                        Log.e("GameViewModel", "Errore su paragrafo $paragraphId", exception)
+                    }
+                    .collect { translatedHtml ->
+                        // Aggiorniamo il contesto per il prossimo paragrafo
+                        paragraphContext = translatedHtml
+                        // Inviamo il risultato formattato come "id|:|traduzione"
+                        _translatedContent.value = "$paragraphId|:|$translatedHtml"
+                    }
+            }
+            _isLoadingTranslation.value = false
+        }
+    }
+
+
     override fun onCleared() {
         super.onCleared()
         ttsService?.shutdown()
-        gemmaEngine.release() // <-- RILASCIO RISORSE GEMMA
-    }
-
-    fun setPreviousStoryContext(html: String) {
-        storyContextHtml = html
-    }
-
-    fun translateCurrentPage(currentHtml: String) {
-        if (currentHtml.isBlank()) return
-
-        viewModelScope.launch {
-            gemmaEngine.translateNarrative(currentHtml, storyContextHtml)
-                .onStart {
-                    _isLoadingTranslation.value = true
-                    _translatedContent.value = null
-                }
-                .onCompletion {
-                    _isLoadingTranslation.value = false
-                }
-                .catch { exception ->
-                    Log.e("GameViewModel", "Errore durante la traduzione con Gemma.", exception)
-                }
-                .collect { translatedHtml ->
-                    _translatedContent.value = translatedHtml
-                }
-        }
+        //gemmaEngine.release() // <-- RILASCIO RISORSE GEMMA
+        gemmaEngine.shutdown()
     }
 
     fun consumeTranslatedContent() {

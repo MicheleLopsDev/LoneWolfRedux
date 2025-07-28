@@ -18,16 +18,18 @@ import java.util.concurrent.Executors
 
 /**
  * Motore di traduzione che utilizza MediaPipe e un modello Gemma locale.
- * Versione definitiva basata sul pattern ListenableFuture per la massima stabilità.
+ * Versione definitiva con gestione corretta del ciclo di vita dell'Executor.
  */
 class GemmaTranslationEngine(private val context: Context) {
     private val tag = "GemmaTranslationEngine"
     private var llmInference: LlmInference? = null
-    // È necessario un Executor per eseguire le callback del Future
+    // L'executor viene creato una sola volta e vive con il motore.
     private val executor: ExecutorService = Executors.newSingleThreadExecutor()
 
     suspend fun setupGemma() {
-        release()
+        // --- MODIFICA CHIAVE 1: Chiudiamo solo l'istanza del modello, NON l'executor ---
+        closeInferenceInstance()
+
         val settings = ModelSettingsManager.getSettingsFlow(context).first()
         val modelPath = settings.dmModelFilePath
 
@@ -48,15 +50,16 @@ class GemmaTranslationEngine(private val context: Context) {
 
         } catch (e: Exception) {
             Log.e(tag, "Errore critico durante la creazione di LlmInference.", e)
-            release()
+            closeInferenceInstance() // In caso di errore, puliamo solo l'istanza.
             throw e
         }
     }
 
     suspend fun translateNarrative(currentText: String, historyText: String): Flow<String> = callbackFlow {
         val llmInferenceInstance = llmInference
-        if (llmInferenceInstance == null) {
-            val errorMessage = "[ERRORE: Motore Gemma non inizializzato]"
+        // Aggiungiamo un controllo per essere sicuri che l'executor sia attivo
+        if (llmInferenceInstance == null || executor.isShutdown) {
+            val errorMessage = "[ERRORE: Motore Gemma non inizializzato o executor terminato]"
             trySend(errorMessage); close(IllegalStateException(errorMessage)); return@callbackFlow
         }
 
@@ -71,27 +74,23 @@ class GemmaTranslationEngine(private val context: Context) {
         val finalPrompt = buildPrompt(currentText, historyText, NarrativeTone.fromKey(settings.narrativeTone))
 
         try {
-            // Aggiungiamo il prompt alla sessione
             session.addQueryChunk(finalPrompt)
-
-            // Chiamiamo il metodo che restituisce un Future, senza listener
             val future = session.generateResponseAsync()
 
-            // Aggiungiamo una callback al Future per gestire il risultato
             Futures.addCallback(future, object : FutureCallback<String> {
                 override fun onSuccess(result: String?) {
                     if (result != null) {
-                        trySend(result) // Inviamo il risultato completo
+                        trySend(result)
                     }
-                    close() // Operazione completata, chiudiamo il Flow
+                    close()
                 }
 
                 override fun onFailure(t: Throwable) {
                     Log.e(tag, "Errore durante la generazione della risposta.", t)
                     trySend("[ERRORE DI TRADUZIONE]")
-                    close(t) // Chiudiamo il Flow con un errore
+                    close(t)
                 }
-            }, executor) // Specifichiamo l'executor
+            }, executor) // Ora l'executor è garantito essere attivo
 
         } catch (e: Exception) {
             Log.e(tag, "Errore imprevisto in generateResponseAsync", e)
@@ -99,7 +98,6 @@ class GemmaTranslationEngine(private val context: Context) {
         }
 
         awaitClose {
-            Log.d(tag, "Flow chiuso. Rilascio sessione.")
             session.close()
         }
     }
@@ -123,22 +121,29 @@ class GemmaTranslationEngine(private val context: Context) {
         TRADUZIONE:
         """.trimIndent()
 
-
-        // --- AGGIUNGI LOG ---
         Log.d(tag, "--- PROMPT FINALE PER GEMMA ---")
         Log.d(tag, finalPrompt)
         Log.d(tag, "---------------------------------")
-
         return finalPrompt
-
     }
 
-    fun release() {
+    /**
+     * Chiude solo l'istanza di LlmInference.
+     */
+    private fun closeInferenceInstance() {
         llmInference?.close()
         llmInference = null
+        Log.d(tag, "Istanza LlmInference rilasciata.")
+    }
+
+    /**
+     * Rilascia TUTTE le risorse. Da chiamare solo in ViewModel.onCleared().
+     */
+    fun shutdown() {
+        closeInferenceInstance()
         if (!executor.isShutdown) {
             executor.shutdown()
+            Log.d(tag, "ExecutorService di GemmaTranslationEngine terminato.")
         }
-        Log.d(tag, "Risorse LlmInference rilasciate.")
     }
 }

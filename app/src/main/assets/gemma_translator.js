@@ -1,30 +1,54 @@
 /**
  * gemma_translator.js
+ * Traduzione narrativa paragrafo per paragrafo.
  */
-alert("gemma_translator.js CARICATO!");
-// LOG DI DEBUG: Se vedi questo nel Logcat (sotto il tag 'chromium'), lo script è stato caricato.
-console.log("GemmaTranslator LOG: Script gemma_translator.js caricato ed eseguito.");
+console.log("GemmaTranslator LOG: Script v2 caricato.");
 
-const STORY_CONTAINER_SELECTOR = 'div.numbered';
+const CONTAINER_SELECTOR = 'div.numbered, div.frontmatter div.maintext';
+const PARAGRAPH_SELECTOR = 'p, h2, h3'; // Selettori per i paragrafi e i titoli da tradurre
 
-function extractStoryHtml() {
-    const storyContainer = document.querySelector(STORY_CONTAINER_SELECTOR);
-    if (storyContainer) {
-        // Rimuoviamo gli script interni per sicurezza prima di inviare l'HTML
-        const cleanHtml = storyContainer.cloneNode(true);
-        Array.from(cleanHtml.querySelectorAll('script')).forEach(script => script.remove());
-        return cleanHtml.innerHTML;
-    } else {
-        console.warn("GemmaTranslator: Contenitore storia '" + STORY_CONTAINER_SELECTOR + "' non trovato.");
-        return "";
+/**
+ * Identifica tutti i paragrafi traducibili, assegna loro un ID unico
+ * e invia i loro contenuti a Kotlin per la traduzione.
+ */
+function extractAndTranslateParagraphs() {
+    const container = document.querySelector(CONTAINER_SELECTOR);
+    if (!container) {
+        console.warn("GemmaTranslator: Nessun contenitore di testo trovato.");
+        return;
+    }
+
+    const paragraphs = Array.from(container.querySelectorAll(PARAGRAPH_SELECTOR));
+    let paragraphsToTranslate = [];
+
+    paragraphs.forEach((p, index) => {
+        const paragraphId = `gemma-trans-${index}`;
+        p.id = paragraphId; // Assegna un ID univoco all'elemento
+        paragraphsToTranslate.push({
+            id: paragraphId,
+            html: p.innerHTML
+        });
+    });
+
+    if (paragraphsToTranslate.length > 0) {
+        console.log(`GemmaTranslator: Trovati ${paragraphsToTranslate.length} paragrafi da tradurre.`);
+        if (window.GemmaTranslator) {
+            // Invia l'intero array di oggetti a Kotlin in formato JSON
+            window.GemmaTranslator.translateParagraphs(JSON.stringify(paragraphsToTranslate));
+        }
     }
 }
 
-function replaceStoryHtml(translatedHtml) {
-    const storyContainer = document.querySelector(STORY_CONTAINER_SELECTOR);
-    if (storyContainer) {
-        storyContainer.innerHTML = translatedHtml;
+/**
+ * Sostituisce l'innerHTML di un singolo paragrafo identificato dal suo ID.
+ * @param {string} paragraphId L'ID dell'elemento <p> da aggiornare.
+ * @param {string} translatedHtml L'HTML tradotto.
+ */
+function replaceSingleParagraph(paragraphId, translatedHtml) {
+    const element = document.getElementById(paragraphId);
+    if (element) {
+        element.innerHTML = translatedHtml;
     } else {
-        console.error("GemmaTranslator: Contenitore '" + STORY_CONTAINER_SELECTOR + "' non trovato per inserire la traduzione.");
+        console.error(`GemmaTranslator: Elemento con ID '${paragraphId}' non trovato.`);
     }
 }

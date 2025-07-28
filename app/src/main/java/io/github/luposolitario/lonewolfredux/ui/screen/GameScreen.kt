@@ -34,7 +34,8 @@ import io.github.luposolitario.lonewolfredux.ui.composables.BookWebView
 import io.github.luposolitario.lonewolfredux.ui.composables.SaveLoadDialog
 import io.github.luposolitario.lonewolfredux.ui.composables.SheetWebView
 import io.github.luposolitario.lonewolfredux.viewmodel.GameViewModel
-
+import org.json.JSONArray
+import org.json.JSONObject
 // Funzione helper per caricare lo script
 private fun getJsFromAssets(context: Context, fileName: String): String {
     return try {
@@ -48,15 +49,15 @@ private fun getJsFromAssets(context: Context, fileName: String): String {
 // Interfaccia JS (invariata)
 private class GemmaJsInterface(private val viewModel: GameViewModel) {
     @JavascriptInterface
-    fun setContext(html: String) {
-        Log.d("GemmaJsInterface", "Contesto ricevuto (lunghezza: ${html.length}). Primi 50 caratteri: ${html.take(50)}")
-        viewModel.setPreviousStoryContext(html)
-    }
-
-    @JavascriptInterface
-    fun startTranslation(html: String) {
-        Log.d("GemmaJsInterface", "Avvio traduzione per HTML (lunghezza: ${html.length}). Primi 50 caratteri: ${html.take(50)}")
-        viewModel.translateCurrentPage(html)
+    fun translateParagraphs(paragraphsJson: String) {
+        Log.d("GemmaJsInterface", "Ricevuti paragrafi da tradurre: $paragraphsJson")
+        val paragraphs = mutableListOf<Pair<String, String>>()
+        val jsonArray = JSONArray(paragraphsJson)
+        for (i in 0 until jsonArray.length()) {
+            val jsonObj = jsonArray.getJSONObject(i)
+            paragraphs.add(Pair(jsonObj.getString("id"), jsonObj.getString("html")))
+        }
+        viewModel.translateParagraphs(paragraphs)
     }
 }
 // Funzione di controllo URL (invariata)
@@ -81,49 +82,40 @@ fun GameScreen(viewModel: GameViewModel,
     val fontZoom by viewModel.fontZoomLevel.collectAsStateWithLifecycle()
     val showZoomSlider by viewModel.showZoomSlider.collectAsStateWithLifecycle()
     val translatedContent by viewModel.translatedContent.collectAsStateWithLifecycle()
+
     var webViewRef by remember { mutableStateOf<WebView?>(null) }
     val context = LocalContext.current
 
-    val unifiedWebViewClient = remember() {
+    val unifiedWebViewClient = remember {
         object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
                 val url = request?.url?.toString() ?: return true
                 viewModel.onNewUrl(url)
-
-                if (isStorySection(url)) {
-                    // Eseguiamo uno script che contiene la logica + la chiamata all'interfaccia
-                    val script = """
-                        (function() {
-                            ${getJsFromAssets(context, "gemma_translator.js")}
-                            const html = extractStoryHtml();
-                            if (window.GemmaTranslator) {
-                                window.GemmaTranslator.setContext(html);
-                            }
-                        })();
-                    """.trimIndent()
-                    view?.evaluateJavascript(script, null)
-                }
                 return true
             }
 
             override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
                 val currentUrl = url ?: return
-                viewModel.addUrlToHistory(currentUrl)
 
+                // --- LOGICA DI INIEZIONE CORRETTA ---
+                // 1. Iniettiamo SEMPRE lo script base quando una pagina finisce di caricare.
+                val gemmaScript = getJsFromAssets(context, "gemma_translator.js")
+                if (gemmaScript.isNotEmpty()) {
+                    view?.evaluateJavascript(gemmaScript, null)
+                }
+
+                // 2. Decidiamo QUALE traduttore usare.
                 if (isStorySection(currentUrl)) {
-                    // --- CORREZIONE DEFINITIVA ---
-                    // Combiniamo l'iniezione e la chiamata in un unico blocco atomico.
-                    val script = """
-                        (function() {
-                            ${getJsFromAssets(context, "gemma_translator.js")}
-                            const html = extractStoryHtml();
-                            if (window.GemmaTranslator) {
-                                window.GemmaTranslator.startTranslation(html);
-                            }
-                        })();
-                    """.trimIndent()
-                    view?.evaluateJavascript(script, null)
+                    Log.d("WebViewClient", "Pagina di storia ($currentUrl). Avvio traduzione Gemma.")
+                    // Ora chiamiamo solo la funzione, sicuri che esista.
+                    view?.evaluateJavascript("javascript:extractAndTranslateParagraphs();", null)
+                } else {
+                    Log.d("WebViewClient", "Pagina normale ($currentUrl). Avvio traduzione standard.")
+                    val script = getJsFromAssets(context, "translator.js")
+                    if (script.isNotEmpty()) {
+                        view?.evaluateJavascript(script, null)
+                    }
                 }
             }
         }
@@ -131,14 +123,21 @@ fun GameScreen(viewModel: GameViewModel,
 
     LaunchedEffect(translatedContent) {
         if (translatedContent != null) {
-            val escapedHtml = translatedContent
-                ?.replace("\\", "\\\\")
-                ?.replace("'", "\\'")
-                ?.replace("\n", "\\n")
-            webViewRef?.evaluateJavascript("javascript:replaceStoryHtml('$escapedHtml');", null)
+            val parts = translatedContent?.split("|:|", limit = 2)
+            if (parts?.size == 2) {
+                val id = parts[0]
+                val escapedHtml = parts[1]
+                    .replace("\\", "\\\\")
+                    .replace("'", "\\'")
+                    .replace("\n", "\\n")
+                // Ora possiamo chiamare la funzione direttamente, sicuri che esista.
+                val script = "replaceSingleParagraph('$id', '$escapedHtml');"
+                webViewRef?.evaluateJavascript(script, null)
+            }
             viewModel.consumeTranslatedContent()
         }
     }
+
 
     if (showZoomSlider) {
         ZoomSliderPanel(
