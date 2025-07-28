@@ -104,22 +104,33 @@ class GemmaTranslationEngine(private val context: Context) {
 
     private fun buildPrompt(currentText: String, historyText: String, narrativeTone: NarrativeTone): String {
         val toneInstruction = when (narrativeTone) {
-            NarrativeTone.Neutro -> "Traduci il seguente testo in italiano cercando di mantenere la traduzione più fedele possibile all'opera, evitando di cambiare o aggiungere cose."
-            else -> "Traduci il seguente testo in italiano adottando uno stile narrativo '${narrativeTone.displayName}'."
+            NarrativeTone.Neutro -> "Traduci il testo in italiano in modo fedele."
+            else -> "Traduci il testo in italiano adottando uno stile narrativo '${narrativeTone.displayName}'."
         }
 
         val finalPrompt = """
-        Sei un traduttore esperto di librogame della serie Lupo Solitario. Mantieni la massima coerenza con il contesto precedente.
+        Sei un traduttore esperto di librogame specializzato in HTML.
+        Il tuo compito è tradurre il testo dall'inglese all'italiano, mantenendo la struttura dei tag HTML intatta.
+
+        ISTRUZIONI:
+        - Traduci solo il contenuto testuale.
+        - Quando trovi il nome : Lone Wolf lo traduci sempre con Lupo Solitario
+        - Quando trovi The Story So Far lo traduci con La storia fino ad ora 
+        - Mantieni ogni tag HTML (`<p>`, `<strong>`, `<cite>`, `<a>`, ecc.) esattamente com'è nell'originale.
+        - La tua risposta deve essere SOLO l'HTML tradotto, senza ``` o altri commenti.
+        
         $toneInstruction
 
-        [CONTESTO DELLA STORIA PRECEDENTE]
+        [CONTESTO STORIA PRECEDENTE]
         $historyText
         ---
-        [TESTO ATTUALE DA TRADURRE]
+        [TESTO HTML DA TRADURRE]
         $currentText
         ---
-        TRADUZIONE:
+        TRADUZIONE HTML:
         """.trimIndent()
+        // --- PROMPT RIEQUILIBRATO ---
+        // --- FINE MODIFICA ---
 
         Log.d(tag, "--- PROMPT FINALE PER GEMMA ---")
         Log.d(tag, finalPrompt)
