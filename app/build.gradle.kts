@@ -75,6 +75,7 @@ dependencies {
     implementation(libs.translate)
     implementation(libs.language.id)
     implementation(libs.okhttp)
+    implementation(libs.tasks.genai)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

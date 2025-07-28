@@ -2,23 +2,6 @@ Bentornato dalle vacanze\! È normale aver bisogno di un riepilogo per riprender
 
 Ecco il piano d'azione che abbiamo definito, spiegato in modo più specifico e dettagliato, esattamente come richiesto. Questo è il nostro progetto tecnico, suddiviso in fasi logiche di implementazione.
 
----
-
-### **Fase 1: Configurazione e Gestione del Modello IA (Il "Pannello di Controllo")**
-
-**Obiettivo**: Dare all'utente il pieno controllo sulla funzionalità avanzata.
-
-* **1.1. Creazione dell'Interfaccia LlmManagerActivity**:  
-  * Questa schermata sarà il centro di comando per Gemma. Dovrà contenere:  
-    * Un campo di testo per inserire il **token di Hugging Face**.  
-    * Un pulsante "Salva Token" che memorizza il token nel ModelSettings DataStore.  
-    * Una lista di modelli scaricabili (per ora, solo il nostro gemma-3n-E4-B-it-int4). Ogni elemento della lista mostrerà il nome del modello, la dimensione e un pulsante "Scarica/Elimina".  
-  * Un ViewModel associato (LlmManagerViewModel) gestirà la logica di download e interagirà con i DataStore.  
-* **1.2. Abilitazione Condizionale dello Switch**:  
-  * Nella schermata delle Impostazioni (ConfigurationActivity), lo Switch "Traduzione Avanzata" sarà collegato a un StateFlow nel suo ViewModel.  
-  * Questo ViewModel osserverà il ModelSettings DataStore. Lo Switch passerà da disabilitato a **abilitato** solo quando il campo dm\_model\_file\_path (il percorso del modello scaricato) non sarà più vuoto.
-
----
 
 ### **Fase 2: L'Estrattore Intelligente (Logica JavaScript)**
 
