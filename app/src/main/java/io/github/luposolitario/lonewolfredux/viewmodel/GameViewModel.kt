@@ -14,6 +14,7 @@ import io.github.luposolitario.lonewolfredux.engine.GemmaTranslationEngine
 import io.github.luposolitario.lonewolfredux.engine.TranslationEngine
 import io.github.luposolitario.lonewolfredux.service.TtsService
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -24,7 +25,7 @@ import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.io.File
-
+import kotlinx.coroutines.isActive
 class GameViewModel(
     application: Application,
     private val gemmaEngine: GemmaTranslationEngine
@@ -72,6 +73,7 @@ class GameViewModel(
     val isLoadingTranslation = _isLoadingTranslation.asStateFlow()
     private val _translatedContent = MutableStateFlow<String?>(null)
     val translatedContent = _translatedContent.asStateFlow()
+    private var translationJob: Job? = null
 
     init {
         ttsService = TtsService(application) {
@@ -87,25 +89,34 @@ class GameViewModel(
     }
 
     fun translateParagraphs(paragraphs: List<Pair<String, String>>) {
-        // Manteniamo il primo paragrafo come contesto per i successivi
-        var paragraphContext = ""
+        // Annulla qualsiasi lavoro precedente per sicurezza
+        if (translationJob?.isActive == true) {
+            translationJob?.cancel()
+        }
 
-        viewModelScope.launch {
+        // --- MODIFICA CHIAVE 2: SALVA IL RIFERIMENTO AL JOB ---
+        translationJob = viewModelScope.launch {
             _isLoadingTranslation.value = true
+            var paragraphContext = ""
+
             for (paragraph in paragraphs) {
+                // Controlla se il job è stato annullato prima di iniziare un nuovo paragrafo
+                if (!isActive) {
+                    Log.d("GameViewModel", "Job annullato, interrompo il ciclo di traduzione.")
+                    break
+                }
+
                 val paragraphId = paragraph.first
                 val paragraphHtml = paragraph.second
 
-                // Usiamo il motore Gemma per tradurre il paragrafo corrente
-                // dandogli il precedente come contesto.
                 gemmaEngine.translateNarrative(paragraphHtml, paragraphContext)
                     .catch { exception ->
-                        Log.e("GameViewModel", "Errore su paragrafo $paragraphId", exception)
+                        if (exception !is java.util.concurrent.CancellationException) {
+                            Log.e("GameViewModel", "Errore su paragrafo $paragraphId", exception)
+                        }
                     }
                     .collect { translatedHtml ->
-                        // Aggiorniamo il contesto per il prossimo paragrafo
                         paragraphContext = translatedHtml
-                        // Inviamo il risultato formattato come "id|:|traduzione"
                         _translatedContent.value = "$paragraphId|:|$translatedHtml"
                     }
             }
@@ -317,8 +328,13 @@ class GameViewModel(
     }
 
     fun onNewUrl(url: String) {
+        // --- MODIFICA CHIAVE 1: ANNULLA IL LAVORO PRECEDENTE ---
+        if (translationJob?.isActive == true) {
+            translationJob?.cancel()
+            Log.d("GameViewModel", "Traduzione precedente annullata a causa di nuova navigazione.")
+        }
+        // --- FINE MODIFICA ---
         _bookUrl.value = url
-        addUrlToHistory(url)
     }
 
     fun addUrlToHistory(url: String) {
