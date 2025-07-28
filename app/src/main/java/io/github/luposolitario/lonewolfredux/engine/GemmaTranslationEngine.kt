@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.first
 import java.io.File
+import java.util.concurrent.CancellationException
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
@@ -70,26 +71,24 @@ class GemmaTranslationEngine(private val context: Context) {
                     close()
                 }
                 override fun onFailure(t: Throwable) {
-                    if (t !is java.util.concurrent.CancellationException) {
+                    // Se l'errore è un annullamento, è un comportamento atteso, non un vero errore.
+                    if (t is CancellationException) {
+                        Log.d(tag, "Traduzione annullata con successo.")
+                    } else {
                         Log.e(tag, "Errore durante la generazione della risposta.", t)
                         trySend("[ERRORE DI TRADUZIONE]")
-                    } else {
-                        Log.d(tag, "Traduzione annullata con successo.")
                     }
                     close(t)
                 }
             }, executor)
 
-            // --- MODIFICA CHIAVE: GESTIONE ANNULLAMENTO ---
+            // Quando il Flow viene annullato, cancelliamo il Future
             awaitClose {
-                Log.d(tag, "Flow annullato. Tento di cancellare il future e chiudere la sessione.")
                 future.cancel(true)
-                session.close()
             }
-            // --- FINE MODIFICA ---
 
         } catch (e: Exception) {
-            if (e !is java.util.concurrent.CancellationException) {
+            if (e !is CancellationException) {
                 Log.e(tag, "Errore imprevisto in generateResponseAsync", e)
             }
             close(e)
