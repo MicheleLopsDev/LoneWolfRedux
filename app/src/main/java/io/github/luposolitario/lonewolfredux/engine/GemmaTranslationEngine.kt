@@ -16,14 +16,22 @@ import java.io.File
 import java.util.concurrent.CancellationException
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+import io.github.luposolitario.lonewolfredux.datastore.TranslationCacheManager // Importa il nuovo manager
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
 class GemmaTranslationEngine(private val context: Context) {
     private val tag = "GemmaTranslationEngine"
     private var llmInference: LlmInference? = null
     private val executor: ExecutorService = Executors.newSingleThreadExecutor()
+    private val engineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
 
     suspend fun setupGemma() {
         closeInferenceInstance()
+
         val settings = ModelSettingsManager.getSettingsFlow(context).first()
         val modelPath = settings.dmModelFilePath
         if (modelPath.isBlank() || !File(modelPath).exists()) {
@@ -47,6 +55,18 @@ class GemmaTranslationEngine(private val context: Context) {
     }
 
     suspend fun translateNarrative(currentText: String, historyText: String): Flow<String> = callbackFlow {
+        // --- MODIFICA CHIAVE 2: USIAMO I METODI DELLA LRUCACHE ---
+        // --- MODIFICA CHIAVE: CONTROLLO DELLA CACHE PERSISTENTE ---
+        val cachedTranslation = TranslationCacheManager.getTranslation(context, currentText)
+        if (cachedTranslation != null) {
+            Log.d(tag, "Cache HIT (dal disco). Restituisco la traduzione salvata.")
+            trySend(cachedTranslation)
+            close()
+            return@callbackFlow
+        }
+
+        Log.d(tag, "Cache MISS. Avvio traduzione con Gemma.")
+
         val llmInferenceInstance = llmInference
         if (llmInferenceInstance == null || executor.isShutdown) {
             val errorMessage = "[ERRORE: Motore Gemma non inizializzato o executor terminato]"
@@ -68,6 +88,11 @@ class GemmaTranslationEngine(private val context: Context) {
             Futures.addCallback(future, object : FutureCallback<String> {
                 override fun onSuccess(result: String?) {
                     if (result != null) {
+                        // --- MODIFICA CHIAVE 3: SALVIAMO NELLA LRUCACHE ---
+                        engineScope.launch {
+                            TranslationCacheManager.saveTranslation(context, currentText, result)
+                            Log.d(tag, "Traduzione salvata nella cache persistente.")
+                        }
                         Log.d(tag, result)
                         trySend(result)
                     }
@@ -97,6 +122,7 @@ class GemmaTranslationEngine(private val context: Context) {
             close(e)
         }
     }
+
 
     private fun buildPrompt(currentText: String, historyText: String, narrativeTone: NarrativeTone): String {
         val toneInstruction = when (narrativeTone) {
