@@ -15,28 +15,21 @@ import io.github.luposolitario.lonewolfredux.engine.TranslationEngine
 import io.github.luposolitario.lonewolfredux.service.TtsService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.onCompletion
-import kotlinx.coroutines.flow.onStart
-import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.io.File
-import kotlinx.coroutines.isActive
+import kotlin.coroutines.cancellation.CancellationException
+
 class GameViewModel(
     application: Application,
     private val gemmaEngine: GemmaTranslationEngine
 ) : AndroidViewModel(application) {
 
-    // --- STATO INTERNO DEL VIEWMODEL ---
+    private var translationJob: Job? = null
     private var activeSlotId: Int = 1
     private var currentBookId: Int = -1
-
     private val translationEngine = TranslationEngine()
-
     private val _jsToRunInBook = MutableStateFlow<String?>(null)
     val jsToRunInBook: StateFlow<String?> = _jsToRunInBook.asStateFlow()
     private val _bookUrl = MutableStateFlow("about:blank")
@@ -66,14 +59,11 @@ class GameViewModel(
         AppSettingsManager.getTtsSettingsFlow(getApplication())
             .stateIn(viewModelScope, SharingStarted.Eagerly, AppSettings.getDefaultInstance())
     private var ttsService: TtsService? = null
-
-    // --- BLOCCO TRADUZIONE AVANZATA ---
     private var storyContextHtml: String = ""
     private val _isLoadingTranslation = MutableStateFlow(false)
     val isLoadingTranslation = _isLoadingTranslation.asStateFlow()
     private val _translatedContent = MutableStateFlow<String?>(null)
     val translatedContent = _translatedContent.asStateFlow()
-    private var translationJob: Job? = null
 
     init {
         ttsService = TtsService(application) {
@@ -88,30 +78,33 @@ class GameViewModel(
         }
     }
 
+    override fun onCleared() {
+        super.onCleared()
+        ttsService?.shutdown()
+        gemmaEngine.shutdown()
+    }
+
+    fun setPreviousStoryContext(html: String) {
+        storyContextHtml = html
+    }
+
     fun translateParagraphs(paragraphs: List<Pair<String, String>>) {
-        // Annulla qualsiasi lavoro precedente per sicurezza
         if (translationJob?.isActive == true) {
             translationJob?.cancel()
         }
-
-        // --- MODIFICA CHIAVE 2: SALVA IL RIFERIMENTO AL JOB ---
         translationJob = viewModelScope.launch {
             _isLoadingTranslation.value = true
             var paragraphContext = ""
-
             for (paragraph in paragraphs) {
-                // Controlla se il job è stato annullato prima di iniziare un nuovo paragrafo
                 if (!isActive) {
                     Log.d("GameViewModel", "Job annullato, interrompo il ciclo di traduzione.")
                     break
                 }
-
                 val paragraphId = paragraph.first
                 val paragraphHtml = paragraph.second
-
                 gemmaEngine.translateNarrative(paragraphHtml, paragraphContext)
                     .catch { exception ->
-                        if (exception !is java.util.concurrent.CancellationException) {
+                        if (exception !is CancellationException) {
                             Log.e("GameViewModel", "Errore su paragrafo $paragraphId", exception)
                         }
                     }
@@ -124,19 +117,10 @@ class GameViewModel(
         }
     }
 
-
-    override fun onCleared() {
-        super.onCleared()
-        ttsService?.shutdown()
-        //gemmaEngine.release() // <-- RILASCIO RISORSE GEMMA
-        gemmaEngine.shutdown()
-    }
-
     fun consumeTranslatedContent() {
         _translatedContent.value = null
     }
 
-    // --- FUNZIONI ESISTENTI ---
     fun initialize(bookId: Int) {
         if (bookId <= 0) {
             Log.e("GameViewModel", "ID del libro non valido: $bookId.")
@@ -169,7 +153,6 @@ class GameViewModel(
         }
     }
 
-    // ... tutto il resto del tuo codice è già corretto e può rimanere così
     fun speakText(text: String) {
         ttsService?.speak(text, appSettings.value)
     }
@@ -251,10 +234,7 @@ class GameViewModel(
     }
 
     fun onSheetDataExtracted(jsonData: String) {
-        Log.d(
-            "GameViewModel",
-            "Dati estratti per il salvataggio nel libro $currentBookId, slot $activeSlotId"
-        )
+        Log.d("GameViewModel", "Dati estratti per salvataggio: libro $currentBookId, slot $activeSlotId")
         viewModelScope.launch {
             val dataMap: Map<String, String> = Gson().fromJson(
                 jsonData,
@@ -266,12 +246,7 @@ class GameViewModel(
                 .addAllNavigationHistory(_navigationHistory.value)
                 .setBookmarkedParagraphUrl(_bookmarkUrl.value ?: "")
                 .build()
-            SaveGameManager.updateSession(
-                getApplication(),
-                currentBookId,
-                activeSlotId,
-                sessionToSave
-            )
+            SaveGameManager.updateSession(getApplication(), currentBookId, activeSlotId, sessionToSave)
             Log.d("GameViewModel", "Salvataggio completato")
             refreshSaveSlots()
             closeSaveLoadDialog()
@@ -280,11 +255,7 @@ class GameViewModel(
 
     fun loadSheetDataIntoWebView(callbackId: String) {
         viewModelScope.launch {
-            val dataMap = SaveGameManager.getSession(
-                getApplication(),
-                currentBookId,
-                activeSlotId
-            ).sheetDataMap
+            val dataMap = SaveGameManager.getSession(getApplication(), currentBookId, activeSlotId).sheetDataMap
             val jsonData = Gson().toJson(dataMap)
             val escapedJsonData = jsonData.replace("'", "\\'")
             val script = "window.nativeCallback('$callbackId', '$escapedJsonData');"
@@ -328,12 +299,10 @@ class GameViewModel(
     }
 
     fun onNewUrl(url: String) {
-        // --- MODIFICA CHIAVE 1: ANNULLA IL LAVORO PRECEDENTE ---
         if (translationJob?.isActive == true) {
             translationJob?.cancel()
             Log.d("GameViewModel", "Traduzione precedente annullata a causa di nuova navigazione.")
         }
-        // --- FINE MODIFICA ---
         _bookUrl.value = url
     }
 
@@ -343,10 +312,15 @@ class GameViewModel(
         }
     }
 
+    // --- FUNZIONE MODIFICATA ---
     fun onHomeClicked() {
-        if (_navigationHistory.value.isNotEmpty()) {
-            val homeUrl = _navigationHistory.value.first()
-            _bookUrl.value = homeUrl
+        if (currentBookId > 0) {
+            val homeFile = File(getApplication<Application>().filesDir, "books/$currentBookId/sect1.htm")
+            val homeUrl = "file://${homeFile.absolutePath}"
+
+            // Notifica il cambio di URL...
+            onNewUrl(homeUrl)
+            // ...e resetta la cronologia per farla ripartire da qui.
             _navigationHistory.value = listOf(homeUrl)
         }
     }
@@ -354,8 +328,10 @@ class GameViewModel(
     fun onBackClicked() {
         if (_navigationHistory.value.size > 1) {
             val newHistory = _navigationHistory.value.dropLast(1)
+            val previousUrl = newHistory.last()
             _navigationHistory.value = newHistory
-            _bookUrl.value = newHistory.last()
+            // Usa onNewUrl per mantenere la logica di cancellazione
+            onNewUrl(previousUrl)
         }
     }
 
@@ -366,7 +342,7 @@ class GameViewModel(
 
     fun onGoToBookmarkClicked() {
         _bookmarkUrl.value?.let { bookmarkedUrl ->
-            _bookUrl.value = bookmarkedUrl
+            onNewUrl(bookmarkedUrl)
             addUrlToHistory(bookmarkedUrl)
         }
     }

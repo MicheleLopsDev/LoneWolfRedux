@@ -34,6 +34,7 @@ class GemmaTranslationEngine(private val context: Context) {
         try {
             val inferenceOptions = LlmInference.LlmInferenceOptions.builder()
                 .setModelPath(modelPath)
+                //.setPreferredBackend(LlmInference.Backend.GPU)
                 .setMaxTokens(settings.gemmaNLen.toIntOrNull() ?: 2048)
                 .build()
             llmInference = LlmInference.createFromOptions(context, inferenceOptions)
@@ -59,6 +60,7 @@ class GemmaTranslationEngine(private val context: Context) {
             .build()
         val session = LlmInferenceSession.createFromOptions(llmInferenceInstance, sessionOptions)
         val finalPrompt = buildPrompt(currentText, historyText, NarrativeTone.fromKey(settings.narrativeTone))
+        Log.d(tag, finalPrompt)
         try {
             session.addQueryChunk(finalPrompt)
             val future = session.generateResponseAsync()
@@ -66,6 +68,7 @@ class GemmaTranslationEngine(private val context: Context) {
             Futures.addCallback(future, object : FutureCallback<String> {
                 override fun onSuccess(result: String?) {
                     if (result != null) {
+                        Log.d(tag, result)
                         trySend(result)
                     }
                     close()
@@ -109,19 +112,17 @@ class GemmaTranslationEngine(private val context: Context) {
         ISTRUZIONI:
         - Traduci solo il contenuto testuale.
         - Quando trovi il nome "Lone Wolf", traducilo sempre con "Lupo Solitario".
-        - Quando trovi "The Story So Far", traducilo con "La storia fino ad ora".
+        - NON tradurre i seguenti nomi Camouflage, Hunting, 'Sixth Sense', Tracking, Healing, Weaponskill, Mindshield, Mindblast, 'Animal Kinship', 'Mind Over Matter'.
+        - quando incontri la frase turn xxx traducilo con 'vai al paragrafo ' xxx
         - Mantieni ogni tag HTML (`<p>`, `<strong>`, `<cite>`, `<a>`, ecc.) esattamente com'è nell'originale.
         - La tua risposta deve essere SOLO l'HTML tradotto, senza ``` o altri commenti.
         
         $toneInstruction
 
-        [CONTESTO DELLA STORIA PRECEDENTE]
-        $historyText
         ---
         [TESTO HTML DA TRADURRE]
         $currentText
-        ---
-        TRADUZIONE HTML:
+       
         """.trimIndent()
 
         return finalPrompt

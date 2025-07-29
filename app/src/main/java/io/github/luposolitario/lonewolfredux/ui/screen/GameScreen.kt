@@ -62,7 +62,7 @@ private class GemmaJsInterface(private val viewModel: GameViewModel) {
 }
 // Funzione di controllo URL (invariata)
 private fun isStorySection(url: String): Boolean {
-    return url.contains(Regex("sect\\d+\\.htm$")) || url.endsWith("tssf.htm") || url.endsWith("title.htm")
+    return url.contains(Regex("sect\\d+\\.htm$")) //|| url.endsWith("tssf.htm") || url.endsWith("title.htm")
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
