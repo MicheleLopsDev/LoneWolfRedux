@@ -1,30 +1,29 @@
 /**
- * gemma_translator.js v4 - Soluzione con Indicatore di Caricamento
+ * gemma_translator.js v5 - Con pulizia di sicurezza del testo.
  */
-console.log("GemmaTranslator LOG: Script v4 (con clessidra) caricato.");
+console.log("GemmaTranslator LOG: Script v5 (con pulizia sicurezza) caricato.");
 
 const CONTAINER_SELECTOR = 'div.numbered, div.frontmatter div.maintext';
 const PARAGRAPH_SELECTOR = 'p, h2, h3';
 
 /**
  * Inietta lo stile per la clessidra nel documento.
- * Viene eseguito una sola volta.
  */
 function addIndicatorStyles() {
-    if (document.getElementById('gemma-loader-style')) return; // Stile già presente
+    if (document.getElementById('gemma-loader-style')) return;
 
     const style = document.createElement('style');
     style.id = 'gemma-loader-style';
     style.innerHTML = `
         #gemma-loader {
             position: fixed;
-            top: 70px; /* Sotto la barra dei pulsanti */
+            top: 70px;
             left: 16px;
-            font-size: 40px; /* Dimensione dell'icona */
+            font-size: 40px;
             opacity: 0.7;
             z-index: 9999;
-            pointer-events: none; /* Non intercettare i click */
-            display: none; /* Nascosto di default */
+            pointer-events: none;
+            display: none;
             animation: spin 2s linear infinite;
         }
 
@@ -37,16 +36,15 @@ function addIndicatorStyles() {
 }
 
 /**
- * Mostra l'indicatore di caricamento (clessidra).
- * Lo crea se non esiste.
+ * Mostra l'indicatore di caricamento.
  */
 function showLoadingIndicator() {
     let loader = document.getElementById('gemma-loader');
     if (!loader) {
-        addIndicatorStyles(); // Assicura che gli stili siano presenti
+        addIndicatorStyles();
         loader = document.createElement('div');
         loader.id = 'gemma-loader';
-        loader.innerHTML = '⏳'; // Icona della clessidra
+        loader.innerHTML = '⏳';
         document.body.appendChild(loader);
     }
     loader.style.display = 'block';
@@ -65,15 +63,12 @@ function hideLoadingIndicator() {
 }
 
 /**
- * Funzione di avvio: identifica, filtra e invia i paragrafi a Kotlin.
+ * Funzione di avvio: estrae i paragrafi da tradurre.
  */
 function extractAndTranslateParagraphs() {
-    showLoadingIndicator(); // Mostra la clessidra all'inizio del processo
-
     const container = document.querySelector(CONTAINER_SELECTOR);
     if (!container) {
-        console.warn("GemmaTranslator WARN: Contenitore principale del testo non trovato.");
-        hideLoadingIndicator(); // Nascondi se non c'è nulla da fare
+        console.warn("GemmaTranslator WARN: Contenitore non trovato.");
         return;
     }
 
@@ -93,24 +88,28 @@ function extractAndTranslateParagraphs() {
         console.log(`GemmaTranslator LOG: Invio di ${paragraphsToTranslate.length} paragrafi a Kotlin.`);
         window.GemmaTranslator.translateParagraphs(JSON.stringify(paragraphsToTranslate));
     } else {
-        hideLoadingIndicator(); // Nascondi se non ci sono paragrafi validi
+        hideLoadingIndicator(); // Nascondi se non c'è nulla da tradurre
     }
 }
 
 /**
- * Funzione di supporto per aggiornare un singolo elemento.
+ * Funzione di supporto per aggiornare un singolo elemento con pulizia di sicurezza.
  */
 function replaceSingleParagraph(paragraphId, translatedHtml) {
     const element = document.getElementById(paragraphId);
     if (element) {
-        element.innerHTML = translatedHtml;
+        // --- MECCANISMO DI SICUREZZA AGGIUNTO QUI ---
+        // Rimuove globalmente ```html e ``` dalla stringa prima di usarla.
+        const cleanedHtml = translatedHtml.replace(/```html|```/g, '');
+
+        element.innerHTML = cleanedHtml; // Usa la stringa pulita
     } else {
         console.error(`GemmaTranslator ERROR: Elemento con ID '${paragraphId}' non trovato.`);
     }
 }
 
 /**
- * Funzione principale di sostituzione: riceve il batch JSON da Kotlin.
+ * Funzione principale di sostituzione batch.
  */
 function replaceBatchParagraphs(translationsJson) {
     try {
@@ -126,6 +125,6 @@ function replaceBatchParagraphs(translationsJson) {
     } catch (e) {
         console.error("GemmaTranslator ERROR: Errore parsing JSON.", e);
     } finally {
-        hideLoadingIndicator(); // Nascondi la clessidra alla fine, anche in caso di errore
+        hideLoadingIndicator(); // Nascondi sempre la clessidra alla fine
     }
 }

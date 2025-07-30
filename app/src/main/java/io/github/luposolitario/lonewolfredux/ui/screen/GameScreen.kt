@@ -97,7 +97,20 @@ fun GameScreen(viewModel: GameViewModel,
             override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
                 val currentUrl = url ?: return
-                // 2. Decidiamo QUALE traduttore usare.
+
+                // 1. INIETTA SEMPRE get_text.js
+                // Questo script fornisce la funzione getVisibleText() per il TTS.
+                val getTextScript = getJsFromAssets(context, "get_text.js")
+                if (getTextScript.isNotEmpty()) {
+                    view?.evaluateJavascript(getTextScript, null)
+                    Log.d("GameScreen", "Iniezione di get_text.js completata.")
+                }
+                // Questo script fornisce la funzione getVisibleText() per il TTS.
+                val getDoubletap = getJsFromAssets(context, "double_tap_detector.js")
+                if (getDoubletap.isNotEmpty()) {
+                    view?.evaluateJavascript(getDoubletap, null)
+                    Log.d("GameScreen", "Iniezione di double_tap_detector.js completata.")
+                }
                 if (isStorySection(currentUrl)) {
                     // --- LOGICA DI INIEZIONE CORRETTA ---
                     // 1. Iniettiamo SEMPRE lo script base quando una pagina finisce di caricare.
