@@ -62,8 +62,9 @@ class GameViewModel(
     private var storyContextHtml: String = ""
     private val _isLoadingTranslation = MutableStateFlow(false)
     val isLoadingTranslation = _isLoadingTranslation.asStateFlow()
-    private val _translatedContent = MutableStateFlow<String?>(null)
-    val translatedContent = _translatedContent.asStateFlow()
+    private val _translatedContent = MutableStateFlow<Map<String, String>?>(null)
+    val translatedContent: StateFlow<Map<String, String>?> = _translatedContent.asStateFlow()
+
 
     init {
         ttsService = TtsService(application) {
@@ -89,30 +90,36 @@ class GameViewModel(
     }
 
     fun translateParagraphs(paragraphs: List<Pair<String, String>>) {
-        if (translationJob?.isActive == true) {
-            translationJob?.cancel()
-        }
+        translationJob?.cancel()
         translationJob = viewModelScope.launch {
             _isLoadingTranslation.value = true
+
+            val results = mutableMapOf<String, String>()
             var paragraphContext = ""
+
             for (paragraph in paragraphs) {
-                if (!isActive) {
-                    Log.d("GameViewModel", "Job annullato, interrompo il ciclo di traduzione.")
-                    break
-                }
+                if (!isActive) break
+
                 val paragraphId = paragraph.first
                 val paragraphHtml = paragraph.second
+
                 gemmaEngine.translateNarrative(paragraphHtml, paragraphContext)
                     .catch { exception ->
                         if (exception !is CancellationException) {
                             Log.e("GameViewModel", "Errore su paragrafo $paragraphId", exception)
+                            results[paragraphId] = paragraphHtml
                         }
                     }
                     .collect { translatedHtml ->
                         paragraphContext = translatedHtml
-                        _translatedContent.value = "$paragraphId|:|$translatedHtml"
+                        results[paragraphId] = translatedHtml
                     }
             }
+
+            if (isActive) {
+                _translatedContent.value = results
+            }
+
             _isLoadingTranslation.value = false
         }
     }
@@ -358,4 +365,6 @@ class GameViewModel(
     fun onJsExecuted() {
         _jsToRunInSheet.value = null
     }
+
+
 }

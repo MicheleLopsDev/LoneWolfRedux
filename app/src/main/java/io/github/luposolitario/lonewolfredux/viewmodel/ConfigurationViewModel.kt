@@ -1,6 +1,7 @@
 package io.github.luposolitario.lonewolfredux.viewmodel
 
 import android.app.Application
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.luposolitario.lonewolfredux.data.NarrativeTone
@@ -8,6 +9,7 @@ import io.github.luposolitario.lonewolfredux.datastore.AppSettings
 import io.github.luposolitario.lonewolfredux.datastore.AppSettingsManager
 import io.github.luposolitario.lonewolfredux.datastore.ModelSettingsManager
 import io.github.luposolitario.lonewolfredux.datastore.SaveGameManager
+import io.github.luposolitario.lonewolfredux.datastore.TranslationCacheManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -108,5 +110,17 @@ class ConfigurationViewModel(application: Application) : AndroidViewModel(applic
             AppSettingsManager.updateTtsSettings(getApplication(), narratorVoice = name)
         }
     }
+
+    /**
+     * Chiamato quando l'utente preme il pulsante per cancellare la cache di traduzione.
+     */
+    fun onClearTranslationCacheClicked() {
+        viewModelScope.launch {
+            TranslationCacheManager.clearCache(getApplication())
+            // Qui potresti mostrare un Toast o una Snackbar per confermare l'avvenuta cancellazione
+            Log.d("ConfigurationViewModel", "Cache di traduzione avanzata cancellata.")
+        }
+    }
+
 
 }

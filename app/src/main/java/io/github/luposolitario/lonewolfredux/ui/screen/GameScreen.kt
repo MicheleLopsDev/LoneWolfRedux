@@ -97,16 +97,14 @@ fun GameScreen(viewModel: GameViewModel,
             override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
                 val currentUrl = url ?: return
-
-                // --- LOGICA DI INIEZIONE CORRETTA ---
-                // 1. Iniettiamo SEMPRE lo script base quando una pagina finisce di caricare.
-                val gemmaScript = getJsFromAssets(context, "gemma_translator.js")
-                if (gemmaScript.isNotEmpty()) {
-                    view?.evaluateJavascript(gemmaScript, null)
-                }
-
                 // 2. Decidiamo QUALE traduttore usare.
                 if (isStorySection(currentUrl)) {
+                    // --- LOGICA DI INIEZIONE CORRETTA ---
+                    // 1. Iniettiamo SEMPRE lo script base quando una pagina finisce di caricare.
+                    val gemmaScript = getJsFromAssets(context, "gemma_translator.js")
+                    if (gemmaScript.isNotEmpty()) {
+                        view?.evaluateJavascript(gemmaScript, null)
+                    }
                     Log.d("WebViewClient", "Pagina di storia ($currentUrl). Avvio traduzione Gemma.")
                     // Ora chiamiamo solo la funzione, sicuri che esista.
                     view?.evaluateJavascript("javascript:extractAndTranslateParagraphs();", null)
@@ -115,20 +113,33 @@ fun GameScreen(viewModel: GameViewModel,
         }
     }
 
+    // SOSTITUISCI IL TUO LaunchedEffect CON QUESTO:
     LaunchedEffect(translatedContent) {
-        if (translatedContent != null) {
-            val parts = translatedContent?.split("|:|", limit = 2)
-            if (parts?.size == 2) {
-                val id = parts[0]
-                val escapedHtml = parts[1]
-                    .replace("\\", "\\\\")
-                    .replace("'", "\\'")
-                    .replace("\n", "\\n")
-                // Ora possiamo chiamare la funzione direttamente, sicuri che esista.
-                val script = "replaceSingleParagraph('$id', '$escapedHtml');"
-                webViewRef?.evaluateJavascript(script, null)
+        translatedContent?.let { batch ->
+            if (batch.isNotEmpty() && webViewRef != null) {
+                val jsonObject = JSONObject(batch as Map<*, *>)
+
+                // === LA VERA CORREZIONE È QUI ===
+                // Usiamo il metodo quote() di JSONObject che fa l'escape di TUTTI i caratteri necessari,
+                // inclusi \n, \r, \t, e virgolette.
+                val properlyEscapedJsonString = jsonObject.toString()
+                    .replace("\\", "\\\\") // Escape dei backslash
+                    .replace("'", "\\'")   // Escape degli apici singoli
+                    .replace("\"", "\\\"") // Escape delle virgolette doppie
+                    .replace("\n", "\\n")  // Escape dei "a capo"
+                    .replace("\r", "\\r")  // Escape dei "carriage return"
+
+                val script = "replaceBatchParagraphs('${properlyEscapedJsonString}');"
+                // =================================
+
+                Log.d("GameScreen", "Invio batch di ${batch.size} traduzioni a JS.")
+
+                webViewRef?.post {
+                    webViewRef?.evaluateJavascript(script, null)
+                }
+
+                viewModel.consumeTranslatedContent()
             }
-            viewModel.consumeTranslatedContent()
         }
     }
 

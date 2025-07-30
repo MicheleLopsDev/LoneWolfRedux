@@ -113,6 +113,24 @@ fun ConfigurationScreen(viewModel: ConfigurationViewModel) {
                 .padding(16.dp)
         ) {
 
+
+            // --- NUOVO BLOCCO: PULSANTE CANCELLA CACHE ---
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Button(
+                onClick = { viewModel.onClearTranslationCacheClicked() },
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
+            ) {
+                Text("Svuota Cache Traduzioni", color = MaterialTheme.colorScheme.onSecondaryContainer)
+            }
+            Text(
+                "Cancella tutte le traduzioni salvate sul dispositivo. Questo può liberare spazio e risolvere eventuali errori di traduzione.",
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.padding(top = 4.dp)
+            )
+            // --- FINE BLOCCO ---
+
             // --- SEZIONE AUDIO (TTS) ---
             Spacer(Modifier.height(24.dp)); Divider(); Spacer(Modifier.height(16.dp))
             Text("Audio (Sintesi Vocale)", style = MaterialTheme.typography.titleLarge)
