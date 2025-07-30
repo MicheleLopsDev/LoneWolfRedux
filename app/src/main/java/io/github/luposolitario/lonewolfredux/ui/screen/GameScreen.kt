@@ -108,6 +108,12 @@ fun GameScreen(viewModel: GameViewModel,
                     Log.d("WebViewClient", "Pagina di storia ($currentUrl). Avvio traduzione Gemma.")
                     // Ora chiamiamo solo la funzione, sicuri che esista.
                     view?.evaluateJavascript("javascript:extractAndTranslateParagraphs();", null)
+                } else {
+                    Log.d("WebViewClient", "Pagina normale ($currentUrl). Avvio traduzione standard.")
+                    val script = getJsFromAssets(context, "translator.js")
+                    if (script.isNotEmpty()) {
+                        view?.evaluateJavascript(script, null)
+                    }
                 }
             }
         }
