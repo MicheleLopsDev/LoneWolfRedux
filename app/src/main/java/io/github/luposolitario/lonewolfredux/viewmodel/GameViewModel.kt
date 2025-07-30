@@ -310,6 +310,13 @@ class GameViewModel(
             translationJob?.cancel()
             Log.d("GameViewModel", "Traduzione precedente annullata a causa di nuova navigazione.")
         }
+        // --- INIZIO MODIFICA ---
+        // Aggiungi l'URL alla cronologia solo se non è già l'ultimo
+        if (_navigationHistory.value.lastOrNull() != url) {
+            _navigationHistory.value = _navigationHistory.value + url
+            autoSaveCurrentSession() // Salva la sessione dopo aver aggiornato la cronologia
+        }
+        // --- FINE MODIFICA ---
         _bookUrl.value = url
     }
 
@@ -326,9 +333,10 @@ class GameViewModel(
             val homeUrl = "file://${homeFile.absolutePath}"
 
             // Notifica il cambio di URL...
+            _navigationHistory.value = listOf(homeUrl) // La cronologia viene resettata
+            autoSaveCurrentSession() // <-- Aggiungi questa chiamata
+
             onNewUrl(homeUrl)
-            // ...e resetta la cronologia per farla ripartire da qui.
-            _navigationHistory.value = listOf(homeUrl)
         }
     }
 
@@ -338,13 +346,36 @@ class GameViewModel(
             val previousUrl = newHistory.last()
             _navigationHistory.value = newHistory
             // Usa onNewUrl per mantenere la logica di cancellazione
+            autoSaveCurrentSession() // <-- Aggiungi questa chiamata
             onNewUrl(previousUrl)
         }
     }
 
+    // In: GameViewModel.kt
+
+    private fun autoSaveCurrentSession() {
+        viewModelScope.launch {
+            // Recupera la sessione corrente per non perdere i dati della scheda azione
+            val currentSession = SaveGameManager.getSession(getApplication(), currentBookId, activeSlotId)
+
+            // Crea una sessione aggiornata con la cronologia e il segnalibro attuali
+            val updatedSession = currentSession.toBuilder()
+                .clearNavigationHistory()
+                .addAllNavigationHistory(_navigationHistory.value)
+                .setBookmarkedParagraphUrl(_bookmarkUrl.value ?: "")
+                .build()
+
+            // Sovrascrive la sessione su disco con i dati aggiornati
+            SaveGameManager.updateSession(getApplication(), currentBookId, activeSlotId, updatedSession)
+            Log.d("GameViewModel", "Sessione auto-salvata per lo slot $activeSlotId")
+        }
+    }
+
+
     fun onBookmarkClicked() {
         val currentUrl = _bookUrl.value
         _bookmarkUrl.value = if (_bookmarkUrl.value == currentUrl) null else currentUrl
+        autoSaveCurrentSession() // <-- Aggiungi questa chiamata
     }
 
     fun onGoToBookmarkClicked() {
