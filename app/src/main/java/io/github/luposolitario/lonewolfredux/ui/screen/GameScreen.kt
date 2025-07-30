@@ -82,7 +82,7 @@ fun GameScreen(viewModel: GameViewModel,
     val fontZoom by viewModel.fontZoomLevel.collectAsStateWithLifecycle()
     val showZoomSlider by viewModel.showZoomSlider.collectAsStateWithLifecycle()
     val translatedContent by viewModel.translatedContent.collectAsStateWithLifecycle()
-
+    val isLoading by viewModel.isLoadingTranslation.collectAsStateWithLifecycle() // Assicurati di avere questa riga
     var webViewRef by remember { mutableStateOf<WebView?>(null) }
     val context = LocalContext.current
 
@@ -109,6 +109,19 @@ fun GameScreen(viewModel: GameViewModel,
                     // Ora chiamiamo solo la funzione, sicuri che esista.
                     view?.evaluateJavascript("javascript:extractAndTranslateParagraphs();", null)
                 }
+            }
+        }
+    }
+
+    // AGGIUNGI QUESTO NUOVO BLOCCO
+    LaunchedEffect(isLoading) {
+        webViewRef?.post {
+            if (isLoading) {
+                Log.d("GameScreen", "Stato caricamento: VERO. Mostro la clessidra.")
+                webViewRef?.evaluateJavascript("showLoadingIndicator();", null)
+            } else {
+                Log.d("GameScreen", "Stato caricamento: FALSO. Nascondo la clessidra.")
+                webViewRef?.evaluateJavascript("hideLoadingIndicator();", null)
             }
         }
     }
