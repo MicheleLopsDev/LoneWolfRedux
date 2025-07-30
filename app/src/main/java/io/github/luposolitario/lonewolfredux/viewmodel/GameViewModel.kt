@@ -2,6 +2,7 @@ package io.github.luposolitario.lonewolfredux.viewmodel
 
 import android.app.Application
 import android.util.Log
+import android.webkit.JsResult
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.gson.Gson
@@ -20,6 +21,10 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.io.File
 import kotlin.coroutines.cancellation.CancellationException
+
+
+data class ConfirmDialogState(val title: String, val message: String, val result: JsResult)
+
 
 class GameViewModel(
     application: Application,
@@ -64,7 +69,44 @@ class GameViewModel(
     val isLoadingTranslation = _isLoadingTranslation.asStateFlow()
     private val _translatedContent = MutableStateFlow<Map<String, String>?>(null)
     val translatedContent: StateFlow<Map<String, String>?> = _translatedContent.asStateFlow()
+    // --- NUOVO STATO PER IL DIALOGO DI CONFERMA ---
+    private val _sheetConfirmDialogState = MutableStateFlow<ConfirmDialogState?>(null)
+    val sheetConfirmDialogState: StateFlow<ConfirmDialogState?> = _sheetConfirmDialogState.asStateFlow()
+    // Aggiungi queste due nuove proprietà alla classe
+    private val _sheetDialogState = MutableStateFlow<Pair<String, String>?>(null)
+    val sheetDialogState: StateFlow<Pair<String, String>?> = _sheetDialogState.asStateFlow()
 
+
+    /**
+     * Chiamata dal WebChromeClient quando riceve un `onJsConfirm`.
+     */
+    fun showSheetConfirmDialog(title: String, message: String, result: JsResult) {
+        _sheetConfirmDialogState.value = ConfirmDialogState(title, message, result)
+    }
+
+    /**
+     * Chiamata dalla UI quando l'utente preme "Conferma" o "Annulla".
+     */
+    fun onSheetConfirmDialogResult(confirmed: Boolean) {
+        // Prende il risultato JS dallo stato, invia la risposta e pulisce lo stato.
+        _sheetConfirmDialogState.value?.result?.let {
+            if (confirmed) {
+                it.confirm()
+            } else {
+                it.cancel()
+            }
+        }
+        _sheetConfirmDialogState.value = null // Nasconde il dialogo
+    }
+
+    // Aggiungi queste due nuove funzioni
+    fun showSheetDialog(title: String, message: String) {
+        _sheetDialogState.value = Pair(title, message)
+    }
+
+    fun dismissSheetDialog() {
+        _sheetDialogState.value = null
+    }
 
     init {
         ttsService = TtsService(application) {

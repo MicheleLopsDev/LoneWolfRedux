@@ -36,6 +36,14 @@ import io.github.luposolitario.lonewolfredux.ui.composables.SheetWebView
 import io.github.luposolitario.lonewolfredux.viewmodel.GameViewModel
 import org.json.JSONArray
 import org.json.JSONObject
+
+private class SheetJsInterface(private val viewModel: GameViewModel) {
+    @JavascriptInterface
+    fun showDialog(title: String, message: String) {
+        viewModel.showSheetDialog(title, message)
+    }
+}
+
 // Funzione helper per caricare lo script
 private fun getJsFromAssets(context: Context, fileName: String): String {
     return try {
@@ -85,6 +93,9 @@ fun GameScreen(viewModel: GameViewModel,
     val isLoading by viewModel.isLoadingTranslation.collectAsStateWithLifecycle() // Assicurati di avere questa riga
     var webViewRef by remember { mutableStateOf<WebView?>(null) }
     val context = LocalContext.current
+    val sheetDialogState by viewModel.sheetDialogState.collectAsStateWithLifecycle()
+    val sheetChromeClient = remember { SheetWebChromeClient(viewModel) }
+    val sheetConfirmDialogState by viewModel.sheetConfirmDialogState.collectAsStateWithLifecycle() // <-- NUOVO
 
     val unifiedWebViewClient = remember {
         object : WebViewClient() {
@@ -130,6 +141,38 @@ fun GameScreen(viewModel: GameViewModel,
                 }
             }
         }
+    }
+
+    // --- INIZIO CORREZIONE 2: Mostra l'AlertDialog nativo ---
+    sheetDialogState?.let { (title, message) ->
+        AlertDialog(
+            onDismissRequest = { viewModel.dismissSheetDialog() },
+            title = { Text(title) },
+            text = { Text(message) },
+            confirmButton = {
+                TextButton(onClick = { viewModel.dismissSheetDialog() }) {
+                    Text("OK")
+                }
+            }
+        )
+    }
+
+    sheetConfirmDialogState?.let { state ->
+        AlertDialog(
+            onDismissRequest = { viewModel.onSheetConfirmDialogResult(false) }, // Annulla se si clicca fuori
+            title = { Text(state.title) },
+            text = { Text(state.message) },
+            confirmButton = {
+                Button(onClick = { viewModel.onSheetConfirmDialogResult(true) }) {
+                    Text("Conferma")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { viewModel.onSheetConfirmDialogResult(false) }) {
+                    Text("Annulla")
+                }
+            }
+        )
     }
 
     // AGGIUNGI QUESTO NUOVO BLOCCO
@@ -270,7 +313,13 @@ fun GameScreen(viewModel: GameViewModel,
                     viewModel = viewModel,
                     jsToRun = jsToRun,
                     onJsExecuted = { viewModel.onJsExecuted() },
-                    textZoom = fontZoom
+                    textZoom = fontZoom,
+                    // --- CORREZIONE 4: Passa i parametri ora validi ---
+                    onWebViewReady = { webView ->
+                        webView.addJavascriptInterface(SheetJsInterface(viewModel), "AndroidSheet")
+                        Log.d("GameScreen", "SheetJsInterface iniettata.")
+                    },
+                    webChromeClient = sheetChromeClient
                 )
             } else {
                 BookWebView(

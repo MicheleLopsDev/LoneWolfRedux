@@ -3,6 +3,7 @@ package io.github.luposolitario.lonewolfredux.ui.composables
 import android.content.Context
 import android.util.Log
 import android.webkit.JavascriptInterface
+import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.compose.runtime.Composable
@@ -82,7 +83,9 @@ fun SheetWebView(
     viewModel: GameViewModel,
     jsToRun: String?,
     onJsExecuted: () -> Unit,
-    textZoom: Int
+    textZoom: Int,
+    onWebViewReady: (WebView) -> Unit,
+    webChromeClient: WebChromeClient
 ) {
     AndroidView(
         modifier = modifier,
@@ -107,6 +110,9 @@ fun SheetWebView(
                         }
                     }
                 }
+                this.webViewClient = WebViewClient() // Il client per la navigazione
+                this.webChromeClient = webChromeClient // Il NUOVO client per i dialoghi JS
+                onWebViewReady(this)
             }
         },
         update = { webView ->
